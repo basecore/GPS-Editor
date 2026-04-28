@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GPS Track Editor Ultimate</title>
+    <title>GPS Track Editor Pro</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2c3e50">
@@ -15,10 +15,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
+        /* Grundlayout */
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; background: #f4f4f9; overflow: hidden; }
         
         /* Map Container */
-        #map-container { position: relative; flex-grow: 1; width: 100%; min-height: 40vh; z-index: 1; }
+        #map-container { position: relative; flex-grow: 1; width: 100%; min-height: 35vh; z-index: 1; }
         #map { width: 100%; height: 100%; }
         
         .legend { position: absolute; bottom: 20px; left: 10px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 8px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 12px; pointer-events: none; }
@@ -26,7 +27,7 @@
         .legend-color { width: 16px; height: 16px; border-radius: 4px; margin-right: 8px; }
 
         /* UI Panel unten */
-        .ui-panel { background: white; padding: 15px; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 60vh; border-top-left-radius: 15px; border-top-right-radius: 15px; }
+        .ui-panel { background: white; padding: 15px; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 65vh; border-top-left-radius: 15px; border-top-right-radius: 15px; }
         
         .row { display: flex; gap: 10px; align-items: center; }
         select, input[type="file"], .btn { padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; width: 100%; box-sizing: border-box; }
@@ -34,11 +35,11 @@
         
         .btn { border: none; font-weight: bold; text-align: center; cursor: pointer; color: white; }
         .btn-upload { background: #2c3e50; }
-        .btn-export { background: #007bff; font-size: 15px; margin-top: 5px;}
-        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-export { background: #007bff; font-size: 16px; padding: 15px; margin-top: 5px; box-shadow: 0 2px 5px rgba(0,123,255,0.4); }
+        .btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
 
         /* Chart Area */
-        .chart-container { width: 100%; height: 160px; position: relative; margin-top: 5px; }
+        .chart-container { width: 100%; height: 140px; position: relative; margin-top: 5px; }
         
         /* Stats */
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; font-size: 0.8em; background: #f8f9fa; padding: 8px; border-radius: 8px; border: 1px solid #eee; text-align: center; }
@@ -47,10 +48,15 @@
         .stat-label { color: #666; font-size: 0.9em; }
 
         /* Selection Info Box */
-        .selection-info { display: flex; justify-content: space-between; background: #e9ecef; padding: 8px; border-radius: 8px; font-size: 0.9em; font-weight: bold; align-items: center; }
-        .btn-small { padding: 5px 10px; font-size: 12px; border-radius: 5px; color: white; border: none; cursor: pointer; }
+        .selection-info { display: flex; justify-content: space-between; background: #e9ecef; padding: 8px; border-radius: 8px; font-size: 0.9em; font-weight: bold; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .btn-small { padding: 6px 10px; font-size: 12px; border-radius: 5px; color: white; border: none; cursor: pointer; font-weight: bold; }
         .btn-start { background: #28a745; }
         .btn-end { background: #dc3545; }
+        .btn-reset { background: #6c757d; }
+
+        /* Footer */
+        .footer { text-align: center; font-size: 11px; color: #888; padding-top: 5px; border-top: 1px solid #eee; margin-top: 10px; }
+        .footer a { color: #007bff; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -69,7 +75,7 @@
         
         <div class="row">
             <label class="btn btn-upload" style="flex: 1;">
-                📁 CSV/GPX laden
+                📁 CSV / GPX laden
                 <input type="file" id="fileInput" accept=".gpx,.kml,.csv">
             </label>
             <select id="dateSelect" style="flex: 1;" disabled>
@@ -77,21 +83,25 @@
             </select>
         </div>
 
-        <!-- Diagramm für Höhe & Geschwindigkeit -->
+        <!-- Auswahl-Steuerung mit Reset -->
+        <div class="selection-info">
+            <div style="display:flex; gap: 10px;">
+                <div><span style="color:#28a745">Start:</span> <span id="lblStart">--:--</span></div>
+                <div><span style="color:#dc3545">Ende:</span> <span id="lblEnd">--:--</span></div>
+            </div>
+            <div style="display:flex; gap:5px;">
+                <button class="btn-small btn-start" onclick="setSelectionStart()">Als Start</button>
+                <button class="btn-small btn-end" onclick="setSelectionEnd()">Als Ende</button>
+                <button class="btn-small btn-reset" onclick="resetSelection()">↺ Reset</button>
+            </div>
+        </div>
+
+        <!-- Diagramm für Höhe & Geschwindigkeit (zeigt nur Auswahl) -->
         <div class="chart-container">
             <canvas id="profileChart"></canvas>
         </div>
 
-        <!-- Auswahl-Steuerung -->
-        <div class="selection-info">
-            <div><span style="color:#28a745">Start:</span> <span id="lblStart">--:--</span></div>
-            <div><span style="color:#dc3545">Ende:</span> <span id="lblEnd">--:--</span></div>
-            <div style="display:flex; gap:5px;">
-                <button class="btn-small btn-start" onclick="setSelectionStart()">Set Start</button>
-                <button class="btn-small btn-end" onclick="setSelectionEnd()">Set Ende</button>
-            </div>
-        </div>
-
+        <!-- Statistiken -->
         <div class="stats-grid">
             <div class="stat-box"><span class="stat-label">Aktivität</span><span class="stat-value" id="stActivity">-</span></div>
             <div class="stat-box"><span class="stat-label">Distanz</span><span class="stat-value" id="stDist">- km</span></div>
@@ -102,6 +112,12 @@
         </div>
 
         <button id="exportBtn" class="btn btn-export" disabled>💾 Auswahl als GPX Exportieren</button>
+        
+        <!-- Footer / Versionierung -->
+        <div class="footer">
+            GPS Editor Pro <b>v1.2.0</b> | © 2026 Basecore | <a href="https://github.com/basecore/GPS-Editor" target="_blank">GitHub Projekt</a><br>
+            Stand: 28. April 2026
+        </div>
     </div>
 
     <script>
@@ -114,6 +130,7 @@
         let currentDayPoints = [];
         let trackLayerGroup = L.layerGroup().addTo(map);
         let chartCursorMarker = null;
+        let mapClickMarker = null;
         let chartInstance = null;
         
         let selStartIdx = 0;
@@ -129,7 +146,39 @@
             const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
             return R * 2 * Math.atan2(Math.sqrt(Math.sin(dp/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2), Math.sqrt(1-(Math.sin(dp/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2)));
         }
-        function formatTime(isoStr) { return new Date(isoStr).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}); }
+        function formatTime(isoStr) { return new Date(isoStr).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit', second:'2-digit'}); }
+
+        // --- MAP CLICK HANDLER (Popup für Start/Ende Auswahl) ---
+        map.on('click', function(e) {
+            if(currentDayPoints.length === 0) return;
+            
+            let closestIdx = -1, minDist = Infinity;
+            currentDayPoints.forEach((p, idx) => {
+                let dist = e.latlng.distanceTo([p.lat, p.lon]);
+                if(dist < minDist) { minDist = dist; closestIdx = idx; }
+            });
+
+            if(minDist < 150 && closestIdx !== -1) { 
+                if(mapClickMarker) map.removeLayer(mapClickMarker);
+                
+                let pt = currentDayPoints[closestIdx];
+                let speedKmh = pt.speedKmh ? pt.speedKmh.toFixed(1) : '-';
+
+                mapClickMarker = L.circleMarker([pt.lat, pt.lon], { color: '#000', fillColor: '#fff', fillOpacity: 1, radius: 7, weight: 3 }).addTo(map);
+
+                let popupContent = `
+                    <div style="font-size:14px; margin-bottom:8px; line-height:1.4;">
+                        <b>Zeit:</b> ${formatTime(pt.time)}<br>
+                        <b>Geschw.:</b> ${speedKmh} km/h
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn-small btn-start" onclick="setSelectionStart(${closestIdx})">Als Start</button>
+                        <button class="btn-small btn-end" onclick="setSelectionEnd(${closestIdx})">Als Ende</button>
+                    </div>
+                `;
+                mapClickMarker.bindPopup(popupContent).openPopup();
+            }
+        });
 
         // --- DATA PROCESSING ---
         function processAllPoints(points) {
@@ -144,7 +193,7 @@
 
             let dates = Object.keys(globalPointsByDate).sort();
             dateSelect.innerHTML = '';
-            if (dates.length === 0) return;
+            if (dates.length === 0) { alert("Keine gültigen GPS Daten gefunden"); return; }
 
             dates.forEach(d => {
                 let opt = document.createElement('option'); opt.value = d;
@@ -174,18 +223,10 @@
                 p.cumDist = totalDist;
             }
 
-            selStartIdx = 0;
-            selEndIdx = currentDayPoints.length - 1;
-            hoverIdx = 0;
-            exportBtn.disabled = false;
-
-            updateView();
-            
-            let bounds = L.latLngBounds(currentDayPoints.map(p => [p.lat, p.lon]));
-            map.fitBounds(bounds, {padding: [20, 20]});
+            resetSelection();
         }
 
-        // --- DRAWING & CHART ---
+        // --- UPDATE VIEW & CHART ---
         function updateView() {
             document.getElementById('lblStart').innerText = formatTime(currentDayPoints[selStartIdx].time);
             document.getElementById('lblEnd').innerText = formatTime(currentDayPoints[selEndIdx].time);
@@ -193,6 +234,10 @@
             drawMapTrack();
             updateChart();
             analyzeSelection(currentDayPoints.slice(selStartIdx, selEndIdx + 1));
+            
+            // Map auf den gewählten Bereich zoomen
+            let bounds = L.latLngBounds(currentDayPoints.slice(selStartIdx, selEndIdx + 1).map(p => [p.lat, p.lon]));
+            map.fitBounds(bounds, {padding: [20, 20]});
         }
 
         function drawMapTrack() {
@@ -216,18 +261,19 @@
             }
             if(currentCoords.length > 0) L.polyline(currentCoords, { color: currentColor, weight: currentSelected ? 6 : 3, opacity: currentSelected ? 1.0 : 0.3 }).addTo(trackLayerGroup);
             
-            L.circleMarker([currentDayPoints[selStartIdx].lat, currentDayPoints[selStartIdx].lon], {color: '#28a745', radius: 5, fillOpacity: 1}).addTo(trackLayerGroup);
-            L.circleMarker([currentDayPoints[selEndIdx].lat, currentDayPoints[selEndIdx].lon], {color: '#dc3545', radius: 5, fillOpacity: 1}).addTo(trackLayerGroup);
+            L.circleMarker([currentDayPoints[selStartIdx].lat, currentDayPoints[selStartIdx].lon], {color: '#28a745', radius: 6, fillOpacity: 1}).addTo(trackLayerGroup);
+            L.circleMarker([currentDayPoints[selEndIdx].lat, currentDayPoints[selEndIdx].lon], {color: '#dc3545', radius: 6, fillOpacity: 1}).addTo(trackLayerGroup);
         }
 
         function updateChart() {
             const ctx = document.getElementById('profileChart').getContext('2d');
             
-            let labels = currentDayPoints.map(p => p.cumDist.toFixed(1) + 'km');
-            let eleData = currentDayPoints.map(p => p.ele);
-            let speedData = currentDayPoints.map(p => p.speedKmh > 100 ? null : p.speedKmh);
-
-            let bgColors = currentDayPoints.map((p, i) => (i >= selStartIdx && i <= selEndIdx) ? 'rgba(0, 123, 255, 0.4)' : 'rgba(200, 200, 200, 0.1)');
+            // Diagramm nutzt NUR NOCH DEN AUSGEWÄHLTEN BEREICH
+            let slicedPoints = currentDayPoints.slice(selStartIdx, selEndIdx + 1);
+            
+            let labels = slicedPoints.map(p => p.cumDist.toFixed(1) + 'km');
+            let eleData = slicedPoints.map(p => p.ele);
+            let speedData = slicedPoints.map(p => p.speedKmh > 100 ? null : p.speedKmh);
 
             if(chartInstance) chartInstance.destroy();
 
@@ -237,7 +283,7 @@
                     labels: labels,
                     datasets: [
                         { label: 'Höhe (m)', data: eleData, yAxisID: 'yEle', borderColor: '#888', backgroundColor: 'rgba(136, 136, 136, 0.2)', fill: true, tension: 0.1, pointRadius: 0, borderWidth: 1 },
-                        { label: 'Speed (km/h)', data: speedData, yAxisID: 'ySpeed', borderColor: '#007bff', backgroundColor: bgColors, fill: true, tension: 0.2, pointRadius: 0, borderWidth: 2 }
+                        { label: 'Speed (km/h)', data: speedData, yAxisID: 'ySpeed', borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.2)', fill: true, tension: 0.2, pointRadius: 0, borderWidth: 2 }
                     ]
                 },
                 options: {
@@ -245,13 +291,15 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { ticks: { maxTicksLimit: 5, font: {size: 10} } },
+                        x: { ticks: { maxTicksLimit: 6, font: {size: 10} } },
                         yEle: { type: 'linear', position: 'right', display: false },
-                        ySpeed: { type: 'linear', position: 'left', suggestedMax: 40, ticks: {font: {size: 10}} }
+                        ySpeed: { type: 'linear', position: 'left', suggestedMax: 30, ticks: {font: {size: 10}} }
                     },
                     onHover: (e, activeEls) => {
                         if (activeEls.length > 0) {
-                            hoverIdx = activeEls[0].index;
+                            // Mappe lokalen Chart-Index auf globalen Index
+                            let localIdx = activeEls[0].index;
+                            hoverIdx = selStartIdx + localIdx;
                             let pt = currentDayPoints[hoverIdx];
                             
                             if(!chartCursorMarker) {
@@ -265,14 +313,28 @@
             });
         }
 
-        window.setSelectionStart = function() {
+        // --- GLOBAL BUTTON ACTIONS ---
+        window.setSelectionStart = function(idx) {
+            if(idx !== undefined) hoverIdx = idx;
             if(hoverIdx > selEndIdx) selEndIdx = hoverIdx;
             selStartIdx = hoverIdx;
+            if(mapClickMarker) map.closePopup();
             updateView();
         };
-        window.setSelectionEnd = function() {
+        
+        window.setSelectionEnd = function(idx) {
+            if(idx !== undefined) hoverIdx = idx;
             if(hoverIdx < selStartIdx) selStartIdx = hoverIdx;
             selEndIdx = hoverIdx;
+            if(mapClickMarker) map.closePopup();
+            updateView();
+        };
+
+        window.resetSelection = function() {
+            selStartIdx = 0;
+            selEndIdx = currentDayPoints.length - 1;
+            hoverIdx = 0;
+            exportBtn.disabled = false;
             updateView();
         };
 
@@ -335,16 +397,24 @@
             r.readAsText(f);
         });
 
+        // Exporter
         exportBtn.addEventListener('click', () => {
+            if(currentDayPoints.length === 0) return;
             const sel = currentDayPoints.slice(selStartIdx, selEndIdx + 1);
             let gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="GPS Editor Ultimate" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="GPS Editor Pro v1.2.0" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><name>Export_${dateSelect.value}</name><trkseg>
 `;
             sel.forEach(p => { gpx += `      <trkpt lat="${p.lat}" lon="${p.lon}"><ele>${p.ele.toFixed(1)}</ele><time>${new Date(p.time).toISOString()}</time></trkpt>
 `; });
             gpx += `    </trkseg></trk></gpx>`;
-            const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([gpx])); a.download = `Jogging_${dateSelect.value}.gpx`; a.click();
+            
+            const blob = new Blob([gpx], {type: "application/gpx+xml"});
+            const a = document.createElement("a"); 
+            a.href = URL.createObjectURL(blob); 
+            a.download = `Jogging_${dateSelect.value}.gpx`; 
+            a.click();
+            URL.revokeObjectURL(a.href);
         });
     </script>
 </body>
