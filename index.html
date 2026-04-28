@@ -6,7 +6,7 @@
     <title>GPS Track Editor Pro</title>
     
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2c3e50">
+    <meta name="theme-color" content="#1e1e2e">
 
     <!-- Libraries -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
@@ -16,80 +16,112 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
+        /* CSS Variables für Theme Switching */
+        :root {
+            --bg-main: #f4f4f9;
+            --bg-panel: #ffffff;
+            --bg-capture: #f8f9fa;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border-color: #cccccc;
+            --btn-bg: #ffffff;
+            --stat-bg: #f8f9fa;
+            --chart-grid: rgba(0,0,0,0.1);
+            --shadow: rgba(0,0,0,0.15);
+        }
+
+        [data-theme="dark"] {
+            --bg-main: #121212;
+            --bg-panel: #1e1e2e;
+            --bg-capture: #1a1a24;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --border-color: #333344;
+            --btn-bg: #2a2a3a;
+            --stat-bg: #2a2a3a;
+            --chart-grid: rgba(255,255,255,0.1);
+            --shadow: rgba(0,0,0,0.5);
+        }
+
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f4f9; color: #333; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-main); color: var(--text-main); transition: background 0.3s, color 0.3s; }
         
         .container { padding: 10px; display: flex; flex-direction: column; gap: 12px; max-width: 800px; margin: 0 auto; min-height: 100vh; }
 
         /* Loader */
-        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; }
-        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #007bff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .spinner { border: 6px solid #333; border-top: 6px solid #00f2fe; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* Buttons & Inputs */
-        .row { display: flex; gap: 10px; align-items: center; width: 100%; }
-        select, input[type="file"], .btn { padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; width: 100%; background: #fff; }
+        .row { display: flex; gap: 8px; align-items: center; width: 100%; }
+        select, input[type="file"], .btn { padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 14px; width: 100%; background: var(--btn-bg); color: var(--text-main); }
         input[type="file"] { display: none; }
         
-        .btn { border: none; font-weight: bold; text-align: center; cursor: pointer; color: white; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .btn { border: none; font-weight: bold; text-align: center; cursor: pointer; color: white; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px var(--shadow); transition: transform 0.1s; }
+        .btn:active { transform: scale(0.98); }
         .btn-upload { background: #2c3e50; }
+        .btn-theme { background: #ff9800; flex: 0.4; }
         .btn-export { background: #007bff; font-size: 15px; }
-        .btn-screenshot { background: #6f42c1; font-size: 15px; }
-        .btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+        .btn-screenshot { background: #a855f7; font-size: 15px; }
+        .btn:disabled { background: var(--border-color); color: var(--text-muted); cursor: not-allowed; box-shadow: none; }
 
         /* Capture Area */
-        #capture-area { background: #f4f4f9; display: flex; flex-direction: column; gap: 12px; padding: 8px; border-radius: 8px; }
+        #capture-area { background: var(--bg-capture); display: flex; flex-direction: column; gap: 12px; padding: 8px; border-radius: 12px; transition: background 0.3s; }
 
         /* Map */
-        #map-container { height: 45vh; min-height: 350px; position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #ccc; z-index: 1; }
-        #map { width: 100%; height: 100%; }
+        #map-container { height: 45vh; min-height: 350px; position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); z-index: 1; }
+        #map { width: 100%; height: 100%; background: var(--bg-main); }
         
-        .legend { position: absolute; bottom: 15px; left: 10px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 8px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 11px; pointer-events: none; }
-        .legend-item { display: flex; align-items: center; margin-bottom: 4px; }
-        .legend-color { width: 14px; height: 14px; border-radius: 3px; margin-right: 8px; }
+        /* Dark Mode Map Tiles Magic */
+        [data-theme="dark"] .leaflet-tile { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
 
-        /* Floating Controls (Einklappbar) */
-        .floating-controls { position: absolute; top: 10px; right: 10px; z-index: 1000; background: rgba(255,255,255,0.95); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); width: 220px; overflow: hidden; transition: all 0.3s ease; }
+        .legend { position: absolute; bottom: 15px; left: 10px; z-index: 1000; background: var(--bg-panel); padding: 8px; border-radius: 8px; box-shadow: 0 2px 5px var(--shadow); font-size: 11px; pointer-events: none; color: var(--text-main); }
+        .legend-item { display: flex; align-items: center; margin-bottom: 4px; }
+        .legend-color { width: 14px; height: 14px; border-radius: 4px; margin-right: 8px; }
+
+        /* Floating Controls */
+        .floating-controls { position: absolute; top: 10px; right: 10px; z-index: 1000; background: var(--bg-panel); border-radius: 8px; box-shadow: 0 2px 10px var(--shadow); width: 220px; overflow: hidden; border: 1px solid var(--border-color); }
         .fc-header { padding: 8px 10px; background: #2c3e50; color: white; font-weight: bold; font-size: 13px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
         .fc-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
         .time-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-        .time-label { font-weight: bold; font-size: 12px; width: 35px; }
-        input[type="time"] { padding: 4px; font-size: 13px; flex-grow: 1; border: 1px solid #aaa; border-radius: 4px; width: 100%; }
+        .time-label { font-weight: bold; font-size: 12px; width: 35px; color: var(--text-main); }
+        input[type="time"] { padding: 4px; font-size: 13px; flex-grow: 1; border: 1px solid var(--border-color); border-radius: 4px; width: 100%; background: var(--btn-bg); color: var(--text-main); }
         .btn-adjust { padding: 4px 6px; font-size: 11px; border-radius: 4px; color: #fff; border: none; cursor: pointer; font-weight: bold; }
         .btn-start { background: #28a745; }
         .btn-end { background: #dc3545; }
         .btn-gray { background: #6c757d; width: 100%; margin-top: 2px; }
 
         /* Chart Area */
-        .chart-container { width: 100%; height: 180px; position: relative; background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 5px; }
+        .chart-container { width: 100%; height: 200px; position: relative; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px; transition: background 0.3s; }
         
         /* Stats & Unit Toggle */
         .stats-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: -4px; padding: 0 5px; }
-        .unit-toggle { display: flex; background: #dee2e6; border-radius: 6px; overflow: hidden; }
-        .unit-btn { padding: 4px 10px; font-size: 12px; border: none; background: transparent; cursor: pointer; font-weight: bold; color: #666; }
-        .unit-btn.active { background: #007bff; color: white; }
+        .unit-toggle { display: flex; background: var(--border-color); border-radius: 6px; overflow: hidden; }
+        .unit-btn { padding: 4px 10px; font-size: 12px; border: none; background: transparent; cursor: pointer; font-weight: bold; color: var(--text-main); }
+        .unit-btn.active { background: #00f2fe; color: #000; }
 
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #ccc; text-align: center; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: var(--stat-bg); padding: 12px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; }
         .stat-box { display: flex; flex-direction: column; }
-        .stat-value { font-weight: bold; font-size: 1.1em; color: #2c3e50; }
-        .stat-label { color: #666; font-size: 0.75em; text-transform: uppercase; }
+        .stat-value { font-weight: bold; font-size: 1.1em; color: var(--text-main); }
+        .stat-label { color: var(--text-muted); font-size: 0.75em; text-transform: uppercase; }
 
-        .footer { text-align: center; font-size: 11px; color: #888; padding: 10px 0; margin-top: auto; }
+        .footer { text-align: center; font-size: 11px; color: var(--text-muted); padding: 10px 0; margin-top: auto; }
     </style>
 </head>
-<body>
+<body data-theme="dark">
 
     <div id="loader">
         <div class="spinner"></div>
-        <strong id="loaderText" style="color:#2c3e50; font-size:18px;">Verarbeite...</strong>
+        <strong id="loaderText" style="color:#fff; font-size:18px;">Verarbeite...</strong>
     </div>
 
     <div class="container">
         
-        <!-- Header -->
         <div class="row no-print">
+            <button class="btn btn-theme" id="themeToggle" onclick="toggleTheme()">☀️ Light</button>
             <label class="btn btn-upload" style="flex: 1;">
-                📁 CSV/GPX laden
+                📁 CSV/GPX/KML
                 <input type="file" id="fileInput" accept=".gpx,.kml,.csv">
             </label>
             <select id="dateSelect" style="flex: 1;" disabled>
@@ -97,9 +129,7 @@
             </select>
         </div>
 
-        <!-- CAPTURE AREA (wird als Bild exportiert) -->
         <div id="capture-area">
-            
             <div id="map-container">
                 <div id="map"></div>
                 
@@ -110,7 +140,6 @@
                     <div class="legend-item"><div class="legend-color" style="background:#dc3545;"></div> Auto (&gt;30 km/h)</div>
                 </div>
 
-                <!-- Floating Controls (Einklappbar) -->
                 <div class="floating-controls" id="floatingControls">
                     <div class="fc-header" onclick="toggleControls()">
                         <span>⚙️ Auswahl</span>
@@ -134,9 +163,8 @@
                 </div>
             </div>
 
-            <!-- Stats & Einheiten Toggle -->
             <div class="stats-header">
-                <div style="font-weight:bold; font-size:14px; color:#2c3e50;" id="stWeather">🌤️ Wetter: -</div>
+                <div style="font-weight:bold; font-size:13px; color:var(--text-main);" id="stWeather">🌤️ Wetter wird geladen...</div>
                 <div class="unit-toggle">
                     <button class="unit-btn active" id="btnKmh" onclick="setUnit('kmh')">km/h</button>
                     <button class="unit-btn" id="btnPace" onclick="setUnit('pace')">min/km</button>
@@ -167,12 +195,20 @@
             <button id="screenshotBtn" class="btn btn-screenshot" disabled>📸 Screenshot</button>
         </div>
         
-        <div class="footer no-print">GPS Editor Pro <b>v1.5.0</b> | © 2026 Basecore</div>
+        <div class="footer no-print">GPS Editor Pro <b>v1.6.0</b> | © 2026 Basecore</div>
     </div>
 
     <script>
+        // --- THEME ---
+        function toggleTheme() {
+            let isDark = document.body.getAttribute('data-theme') === 'dark';
+            document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            document.getElementById('themeToggle').innerText = isDark ? '🌙 Dark' : '☀️ Light';
+            updateChart(); 
+        }
+
         // --- APP STATE ---
-        let map = L.map('map').setView([48.1351, 11.5820], 11);
+        const map = L.map('map').setView([48.1351, 11.5820], 11);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSMap', crossOrigin: true }).addTo(map);
 
         let globalPointsByDate = {};
@@ -181,7 +217,7 @@
         let chartCursorMarker = null, mapClickMarker = null, chartInstance = null;
         
         let selStartIdx = 0, selEndIdx = 0;
-        let usePace = false; // Toggle für min/km vs km/h
+        let usePace = false; 
         let isControlsOpen = true;
 
         const loader = document.getElementById('loader');
@@ -192,39 +228,94 @@
         const timeStart = document.getElementById('timeStart');
         const timeEnd = document.getElementById('timeEnd');
 
-        // --- INIT DUMMY CHART ---
-        function initDummyChart() {
+        // --- INIT DUMMY CHART (FANCY GRADIENTS) ---
+        function drawChart(labels, speedData, eleData) {
             const ctx = document.getElementById('profileChart').getContext('2d');
+            
+            let isDark = document.body.getAttribute('data-theme') === 'dark';
+            let gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+            let textColor = isDark ? '#a0a0a0' : '#666666';
+
+            // Neon Gradients
+            let speedGrad = ctx.createLinearGradient(0, 0, 0, 200);
+            speedGrad.addColorStop(0, 'rgba(0, 242, 254, 0.7)');
+            speedGrad.addColorStop(1, 'rgba(0, 242, 254, 0.05)');
+            
+            let eleGrad = ctx.createLinearGradient(0, 0, 0, 200);
+            eleGrad.addColorStop(0, 'rgba(168, 85, 247, 0.6)');
+            eleGrad.addColorStop(1, 'rgba(168, 85, 247, 0.05)');
+
+            if(chartInstance) chartInstance.destroy();
+
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: ['0km', '2km', '4km', '6km', '8km', '10km'],
+                    labels: labels,
                     datasets: [
-                        { label: 'Speed (km/h)', data: [0, 15, 25, 45, 20, 0], yAxisID: 'ySpeed', borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.1)', fill: true, tension: 0.3, borderWidth: 2 },
-                        { label: 'Höhe (m)', data: [100, 150, 400, 300, 200, 100], yAxisID: 'yEle', borderColor: '#6c757d', backgroundColor: 'rgba(108, 117, 125, 0.1)', fill: true, tension: 0.3, borderWidth: 1 }
+                        { label: usePace ? 'Pace' : 'Speed', data: speedData, yAxisID: 'ySpeed', borderColor: '#00f2fe', backgroundColor: speedGrad, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2, order: 1 },
+                        { label: 'Höhe (m)', data: eleData, yAxisID: 'yEle', borderColor: '#a855f7', backgroundColor: eleGrad, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2, order: 2 }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                    scales: { ySpeed: { position: 'left', suggestedMax: 50 }, yEle: { position: 'right', suggestedMax: 500, grid: {drawOnChartArea: false} } }
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: true, position: 'top', labels: { color: textColor, boxWidth: 12, font: {size: 11} } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    let val = ctx.raw;
+                                    if(ctx.datasetIndex === 0 && usePace) {
+                                        if(!val) return '-';
+                                        let m = Math.floor(val), s = Math.round((val-m)*60);
+                                        return `Pace: ${m}:${s<10?'0':''}${s} min/km`;
+                                    }
+                                    return `${ctx.dataset.label}: ${val ? val.toFixed(1) : '-'}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 5, color: textColor }, grid: { color: gridColor } },
+                        ySpeed: { 
+                            type: 'linear', position: 'left', 
+                            reverse: false, // NICHT INVERTIERT FÜR PACE
+                            title: {display: true, text: usePace ? 'Pace (min/km)' : 'Speed (km/h)', color: '#00f2fe'}, 
+                            ticks: { color: '#00f2fe', callback: function(val) {
+                                if(!usePace) return val;
+                                let m = Math.floor(val), s = Math.round((val-m)*60);
+                                return m+':'+(s<10?'0':'')+s;
+                            }}, grid: { color: gridColor } 
+                        },
+                        yEle: { type: 'linear', position: 'right', grid: {drawOnChartArea: false}, title: {display: true, text: 'Höhe (m)', color: '#a855f7'}, ticks: { color: '#a855f7' } }
+                    },
+                    onHover: (e, activeEls) => {
+                        if (activeEls.length > 0 && currentDayPoints.length > 0) {
+                            let globalIdx = selStartIdx + activeEls[0].index;
+                            if(globalIdx < currentDayPoints.length) {
+                                let pt = currentDayPoints[globalIdx];
+                                if(!chartCursorMarker) chartCursorMarker = L.circleMarker([pt.lat, pt.lon], {color: 'black', fillColor: 'white', fillOpacity: 1, radius: 7, weight: 3}).addTo(map);
+                                else chartCursorMarker.setLatLng([pt.lat, pt.lon]);
+                            }
+                        }
+                    }
                 }
             });
         }
-        initDummyChart();
+        
+        // Dummy Daten Start
+        drawChart(['0km','2km','4km','6km','8km','10km'], [10, 15, 25, 45, 20, 12], [100, 150, 400, 300, 200, 100]);
 
-        // --- HELPER & FORMATTING ---
+        // --- HELPER ---
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3, p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
             const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
             return R * 2 * Math.atan2(Math.sqrt(Math.sin(dp/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2), Math.sqrt(1-(Math.sin(dp/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2)));
         }
         function formatTimeForInput(isoStr) { return new Date(isoStr).toTimeString().split(' ')[0]; }
-        
         function formatPace(kmh) {
             if (!kmh || kmh < 0.5) return '-';
             let pace = 60 / kmh;
             if (pace > 60) return '>60:00';
-            let m = Math.floor(pace);
-            let s = Math.round((pace - m) * 60);
+            let m = Math.floor(pace), s = Math.round((pace - m) * 60);
             if (s === 60) { m++; s = 0; }
             return m + ':' + (s < 10 ? '0' : '') + s;
         }
@@ -245,21 +336,19 @@
             usePace = (unit === 'pace');
             document.getElementById('btnKmh').className = 'unit-btn' + (!usePace ? ' active' : '');
             document.getElementById('btnPace').className = 'unit-btn' + (usePace ? ' active' : '');
-            
             document.getElementById('lblAvgSpd').innerText = usePace ? 'Ø Pace' : 'Ø Speed';
             document.getElementById('lblMaxSpd').innerText = usePace ? 'Max Pace' : 'Max Speed';
-            
-            if(currentDayPoints.length > 0) updateView(false); // Update without refitting map
+            if(currentDayPoints.length > 0) updateView(false); 
+            else drawChart(['0km','5km','10km'], [15, 20, 15], [100, 200, 100]); // Redraw dummy
         };
 
-        // --- WEATHER API (Open-Meteo) ---
+        // --- WEATHER API ---
         async function fetchWeather(lat, lon, dateString, timeString) {
+            document.getElementById('stWeather').innerText = `🌤️ Wetter wird geladen...`;
             try {
-                // Versuche Archiv-API für vergangene Tage
                 let url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${dateString}&end_date=${dateString}&hourly=temperature_2m,windspeed_10m,winddirection_10m`;
                 let res = await fetch(url);
                 if(!res.ok) {
-                    // Fallback Forecast API für heute/gestern
                     url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&start_date=${dateString}&end_date=${dateString}&hourly=temperature_2m,windspeed_10m,winddirection_10m`;
                     res = await fetch(url);
                 }
@@ -267,20 +356,15 @@
                     let data = await res.json();
                     let hour = parseInt(timeString.split(':')[0]);
                     if(data.hourly && data.hourly.temperature_2m[hour] !== undefined) {
-                        let t = data.hourly.temperature_2m[hour];
-                        let w = data.hourly.windspeed_10m[hour];
-                        let d = data.hourly.winddirection_10m[hour];
-                        
-                        // Himmelsrichtung
+                        let t = data.hourly.temperature_2m[hour], w = data.hourly.windspeed_10m[hour], d = data.hourly.winddirection_10m[hour];
                         const dirs = ["N","NO","O","SO","S","SW","W","NW"];
                         let dirStr = dirs[Math.round(d / 45) % 8];
-                        
-                        document.getElementById('stWeather').innerText = `🌤️ Wetter: ${t}°C | 💨 Wind: ${w} km/h (${dirStr})`;
+                        document.getElementById('stWeather').innerText = `🌤️ ${t}°C | 💨 Wind: ${w} km/h (${dirStr})`;
                         return;
                     }
                 }
-            } catch(e) { console.log("Wetter Fehler", e); }
-            document.getElementById('stWeather').innerText = `🌤️ Wetter: Keine Daten verfügbar`;
+            } catch(e) { console.log(e); }
+            document.getElementById('stWeather').innerText = `🌤️ Wetter: Keine Daten`;
         }
 
         // --- DATA PROCESSING ---
@@ -311,8 +395,7 @@
         dateSelect.addEventListener('change', (e) => loadDay(e.target.value));
 
         function loadDay(dateString) {
-            loaderText.innerText = 'Lade Tag...';
-            loader.style.display = 'flex';
+            loaderText.innerText = 'Lade Tag...'; loader.style.display = 'flex';
             if(chartCursorMarker) { map.removeLayer(chartCursorMarker); chartCursorMarker = null; }
             if(mapClickMarker) { map.removeLayer(mapClickMarker); mapClickMarker = null; }
             
@@ -331,28 +414,32 @@
                     p.cumDist = totalDist; 
                 }
 
-                resetSelection(true); // true = refit map
-                
-                // Wetter laden (für die Mitte des Tracks)
+                resetSelection(true);
                 let midPt = currentDayPoints[Math.floor(currentDayPoints.length/2)];
                 fetchWeather(midPt.lat, midPt.lon, dateString, formatTimeForInput(midPt.time));
-                
                 loader.style.display = 'none'; 
             }, 100);
         }
 
-        // --- UPDATE VIEW & CHART ---
+        // --- UPDATE VIEW ---
         function updateView(refitMap = false) {
             timeStart.value = formatTimeForInput(currentDayPoints[selStartIdx].time);
             timeEnd.value = formatTimeForInput(currentDayPoints[selEndIdx].time);
             timeStart.disabled = false; timeEnd.disabled = false;
             
             drawMapTrack();
-            updateChart();
-            analyzeSelection(currentDayPoints.slice(selStartIdx, selEndIdx + 1));
+            
+            let sliced = currentDayPoints.slice(selStartIdx, selEndIdx + 1);
+            let startDist = sliced[0].cumDist;
+            let labels = sliced.map(p => (p.cumDist - startDist).toFixed(2) + ' km');
+            let eleData = sliced.map(p => p.ele);
+            let speedData = sliced.map(p => usePace ? paceToDecimal(p.speedKmh) : (p.speedKmh > 100 ? null : p.speedKmh));
+            drawChart(labels, speedData, eleData);
+            
+            analyzeSelection(sliced);
             
             if(refitMap) {
-                let bounds = L.latLngBounds(currentDayPoints.slice(selStartIdx, selEndIdx + 1).map(p => [p.lat, p.lon]));
+                let bounds = L.latLngBounds(sliced.map(p => [p.lat, p.lon]));
                 map.fitBounds(bounds, {padding: [20, 20]});
             }
         }
@@ -365,12 +452,10 @@
                 let p1 = currentDayPoints[i-1], p2 = currentDayPoints[i];
                 let isSelected = (i >= selStartIdx && i <= selEndIdx);
                 let color = '#28a745'; 
-                if(p2.speedKmh > 30) color = '#dc3545'; else if(p2.speedKmh > 15) color = '#6f42c1'; else if(p2.speedKmh > 7) color = '#fd7e14';
+                if(p2.speedKmh > 30) color = '#dc3545'; else if(p2.speedKmh > 15) color = '#a855f7'; else if(p2.speedKmh > 7) color = '#fd7e14';
 
                 if(color !== currentColor || isSelected !== currentSelected) {
-                    if(currentCoords.length > 0) {
-                        L.polyline(currentCoords, { color: currentColor, weight: currentSelected ? 6 : 3, opacity: currentSelected ? 1.0 : 0.3 }).addTo(trackLayerGroup);
-                    }
+                    if(currentCoords.length > 0) L.polyline(currentCoords, { color: currentColor, weight: currentSelected ? 6 : 3, opacity: currentSelected ? 1.0 : 0.3 }).addTo(trackLayerGroup);
                     currentCoords = [[p1.lat, p1.lon], [p2.lat, p2.lon]];
                     currentColor = color; currentSelected = isSelected;
                 } else { currentCoords.push([p2.lat, p2.lon]); }
@@ -380,66 +465,7 @@
             L.circleMarker([currentDayPoints[selEndIdx].lat, currentDayPoints[selEndIdx].lon], {color: '#dc3545', radius: 6, fillOpacity: 1}).addTo(trackLayerGroup);
         }
 
-        function updateChart() {
-            const ctx = document.getElementById('profileChart').getContext('2d');
-            let sliced = currentDayPoints.slice(selStartIdx, selEndIdx + 1);
-            let startDist = sliced[0].cumDist;
-            
-            let labels = sliced.map(p => (p.cumDist - startDist).toFixed(2) + ' km');
-            let eleData = sliced.map(p => p.ele);
-            let speedData = sliced.map(p => usePace ? paceToDecimal(p.speedKmh) : (p.speedKmh > 100 ? null : p.speedKmh));
-
-            if(chartInstance) chartInstance.destroy();
-
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: usePace ? 'Pace' : 'Speed', data: speedData, yAxisID: 'ySpeed', borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.2)', fill: true, tension: 0.2, pointRadius: 0, borderWidth: 2, order: 1 },
-                        { label: 'Höhe (m)', data: eleData, yAxisID: 'yEle', borderColor: '#6c757d', backgroundColor: 'rgba(108, 117, 125, 0.2)', fill: true, tension: 0.1, pointRadius: 0, borderWidth: 1, order: 2 }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12, font: {size: 10} } },
-                        tooltip: {
-                            callbacks: {
-                                label: function(ctx) {
-                                    let val = ctx.raw;
-                                    if(ctx.datasetIndex === 0 && usePace) {
-                                        let m = Math.floor(val), s = Math.round((val-m)*60);
-                                        return `Pace: ${m}:${s<10?'0':''}${s} min/km`;
-                                    }
-                                    return `${ctx.dataset.label}: ${val.toFixed(1)}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: { ticks: { maxTicksLimit: 5, font: {size: 10} } },
-                        ySpeed: { 
-                            type: 'linear', position: 'left', reverse: usePace, // Y-Achse umdrehen bei Pace!
-                            title: {display: true, text: usePace ? 'Pace (min/km)' : 'Speed (km/h)', font: {size: 10}, color: '#007bff'}, 
-                            ticks: {font: {size: 10}, color: '#007bff', callback: function(val) {
-                                if(!usePace) return val;
-                                let m = Math.floor(val), s = Math.round((val-m)*60);
-                                return m+':'+(s<10?'0':'')+s;
-                            }} 
-                        },
-                        yEle: { type: 'linear', position: 'right', grid: {drawOnChartArea: false}, title: {display: true, text: 'Höhe (m)', font: {size: 10}, color: '#6c757d'}, ticks: {font: {size: 10}, color: '#6c757d'} }
-                    },
-                    onHover: (e, activeEls) => {
-                        if (activeEls.length > 0) {
-                            let globalIdx = selStartIdx + activeEls[0].index;
-                            let pt = currentDayPoints[globalIdx];
-                            if(!chartCursorMarker) chartCursorMarker = L.circleMarker([pt.lat, pt.lon], {color: 'black', fillColor: 'white', fillOpacity: 1, radius: 7, weight: 3}).addTo(map);
-                            else chartCursorMarker.setLatLng([pt.lat, pt.lon]);
-                        }
-                    }
-                }
-            });
-        }
+        function updateChart() { updateView(false); } // Redirect for Theme Switch
 
         // --- ZEITSTEUERUNG ---
         window.applyIndex = function(type, idx) {
@@ -494,11 +520,8 @@
             document.getElementById('stActivity').innerText = act;
             document.getElementById('stDist').innerText = totalDist.toFixed(2) + ' km';
             document.getElementById('stTime').innerText = durationMin.toFixed(0) + ' min';
-            
             document.getElementById('stAvgSpd').innerText = usePace ? formatPace(avgKmh) : avgKmh.toFixed(1) + ' km/h';
-            // Bei Pace ist die "Maximalgeschwindigkeit" die niedrigste Min/km Zahl
             document.getElementById('stMaxSpd').innerText = usePace ? formatPace(maxSpeed) : maxSpeed.toFixed(1) + ' km/h';
-            
             document.getElementById('stEleUp').innerText = eleUp.toFixed(0) + ' m';
             document.getElementById('stEleDown').innerText = eleDown.toFixed(0) + ' m';
             document.getElementById('stEleAvg').innerText = validEle > 0 ? (sumEle/validEle).toFixed(0) + ' m' : '-';
@@ -523,27 +546,59 @@
             }
         });
 
-        // --- FILE IMPORT & EXPORT ---
+        // --- FIXED KML & FILE IMPORT ---
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const f = e.target.files[0]; if(!f) return;
             loaderText.innerText = 'Lese Datei...'; loader.style.display = 'flex'; 
             const r = new FileReader();
             r.onload = function(evt) {
-                const name = f.name.toLowerCase();
-                if(name.endsWith('.csv')) {
-                    Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(res) {
-                        let pts = res.data.filter(row => row.lat && row.lon).map(row => ({ lat: parseFloat(row.lat), lon: parseFloat(row.lon), ele: parseFloat(row.elevation||0), time: row.time||new Date().toISOString(), csvSpeed: parseFloat(row.speed||0) }));
-                        processAllPoints(pts);
-                    }});
-                } else if(name.endsWith('.gpx')) {
-                    const pts = new DOMParser().parseFromString(evt.target.result,"text/xml").getElementsByTagName('trkpt');
-                    let parsed = [];
-                    for (let i = 0; i < pts.length; i++) {
-                        let lat = parseFloat(pts[i].getAttribute('lat')), lon = parseFloat(pts[i].getAttribute('lon'));
-                        let t = pts[i].getElementsByTagName('time')[0], e = pts[i].getElementsByTagName('ele')[0];
-                        if (!isNaN(lat) && !isNaN(lon)) parsed.push({ lat: lat, lon: lon, ele: e ? parseFloat(e.textContent) : 0, time: t ? t.textContent : new Date().toISOString(), csvSpeed: 0 });
+                try {
+                    const name = f.name.toLowerCase();
+                    if(name.endsWith('.csv')) {
+                        Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(res) {
+                            let pts = res.data.filter(row => row.lat && row.lon).map(row => ({ lat: parseFloat(row.lat), lon: parseFloat(row.lon), ele: parseFloat(row.elevation||0), time: row.time||new Date().toISOString(), csvSpeed: parseFloat(row.speed||0) }));
+                            processAllPoints(pts);
+                        }});
+                    } else if(name.endsWith('.gpx')) {
+                        const pts = new DOMParser().parseFromString(evt.target.result,"text/xml").getElementsByTagName('trkpt');
+                        let parsed = [];
+                        for (let i = 0; i < pts.length; i++) {
+                            let lat = parseFloat(pts[i].getAttribute('lat')), lon = parseFloat(pts[i].getAttribute('lon'));
+                            let t = pts[i].getElementsByTagName('time')[0], e = pts[i].getElementsByTagName('ele')[0];
+                            if (!isNaN(lat) && !isNaN(lon)) parsed.push({ lat: lat, lon: lon, ele: e ? parseFloat(e.textContent) : 0, time: t ? t.textContent : new Date().toISOString(), csvSpeed: 0 });
+                        }
+                        processAllPoints(parsed);
+                    } else if(name.endsWith('.kml')) {
+                        // Neuer robuster KML Parser
+                        const xml = new DOMParser().parseFromString(evt.target.result,"text/xml");
+                        let parsed = [];
+                        
+                        // Methode 1: gx:coord (moderne Tracker)
+                        const gxCoords = xml.getElementsByTagName('gx:coord');
+                        const times = xml.getElementsByTagName('when');
+                        if (gxCoords.length > 0) {
+                            for (let i = 0; i < gxCoords.length; i++) {
+                                let parts = gxCoords[i].textContent.trim().split(' ');
+                                if(parts.length >= 2) parsed.push({ lat: parseFloat(parts[1]), lon: parseFloat(parts[0]), ele: parts.length > 2 ? parseFloat(parts[2]) : 0, time: times[i] ? times[i].textContent : new Date().toISOString(), csvSpeed: 0 });
+                            }
+                        } else {
+                            // Methode 2: LineString
+                            const coordsNodes = xml.getElementsByTagName('coordinates');
+                            for (let i = 0; i < coordsNodes.length; i++) {
+                                let txt = coordsNodes[i].textContent.trim().split(/s+/);
+                                txt.forEach(ct => {
+                                    if(!ct) return;
+                                    let parts = ct.split(',');
+                                    if(parts.length >= 2) parsed.push({ lat: parseFloat(parts[1]), lon: parseFloat(parts[0]), ele: parts.length > 2 ? parseFloat(parts[2]) : 0, time: new Date().toISOString(), csvSpeed: 0 });
+                                });
+                            }
+                        }
+                        if(parsed.length === 0) throw new Error("Keine Koordinaten gefunden.");
+                        processAllPoints(parsed);
                     }
-                    processAllPoints(parsed);
+                } catch(e) {
+                    alert("Dateifehler: " + e.message);
+                    loader.style.display = 'none';
                 }
             };
             r.readAsText(f);
@@ -562,32 +617,29 @@
             const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([gpx], {type: "application/gpx+xml"})); a.download = `Jogging_${dateSelect.value}.gpx`; a.click();
         });
 
-        // --- SCREENSHOT FUNKTION (Zentriert Karte vorher) ---
+        // --- SCREENSHOT ---
         screenshotBtn.addEventListener('click', () => {
             loaderText.innerText = 'Bereite Screenshot vor...'; loader.style.display = 'flex';
-            
-            // UI für Screenshot optimieren
             let wasOpen = isControlsOpen;
-            if(isControlsOpen) toggleControls(); // Controls einklappen
+            if(isControlsOpen) toggleControls(); 
             if(mapClickMarker) map.closePopup();
             
-            // Karte exakt zentrieren
             let bounds = L.latLngBounds(currentDayPoints.slice(selStartIdx, selEndIdx + 1).map(p => [p.lat, p.lon]));
             map.fitBounds(bounds, {padding: [10, 10], animate: false});
             
-            // Warten bis Karte gerendert ist
             setTimeout(() => {
-                html2canvas(document.getElementById('capture-area'), { useCORS: true, scale: 2, backgroundColor: '#f4f4f9' }).then(canvas => {
+                let isDark = document.body.getAttribute('data-theme') === 'dark';
+                let bgColor = isDark ? '#1a1a24' : '#f8f9fa'; // Capture-Area Background
+                html2canvas(document.getElementById('capture-area'), { useCORS: true, scale: 2, backgroundColor: bgColor }).then(canvas => {
                     let a = document.createElement('a');
                     a.href = canvas.toDataURL('image/png');
                     a.download = `GPS_Report_${document.getElementById('stDate').innerText.replace(/./g, '-')}.png`;
                     a.click();
-                    
-                    if(wasOpen) toggleControls(); // UI wiederherstellen
+                    if(wasOpen) toggleControls(); 
                     loader.style.display = 'none';
                 }).catch(e => { alert("Screenshot Fehler"); loader.style.display = 'none'; });
             }, 600);
         });
     </script>
 </body>
-</html>
+    </html>
