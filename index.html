@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2c3e50">
 
-    <!-- Leaflet, Chart.js, PapaParse & html2canvas -->
+    <!-- Libraries -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -16,18 +16,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
-        /* Grundlayout - Natürliches Scrollen für mobile Geräte */
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f4f9; color: #333; }
         
         .container { padding: 10px; display: flex; flex-direction: column; gap: 12px; max-width: 800px; margin: 0 auto; min-height: 100vh; }
 
-        /* Lade-Overlay */
+        /* Loader */
         #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; }
         .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #007bff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* UI Elemente */
+        /* Buttons & Inputs */
         .row { display: flex; gap: 10px; align-items: center; width: 100%; }
         select, input[type="file"], .btn { padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; width: 100%; background: #fff; }
         input[type="file"] { display: none; }
@@ -38,10 +37,10 @@
         .btn-screenshot { background: #6f42c1; font-size: 15px; }
         .btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
 
-        /* Capture Area (Dieser Bereich wird als Bild exportiert) */
-        #capture-area { background: #f4f4f9; display: flex; flex-direction: column; gap: 12px; padding: 5px; border-radius: 8px; }
+        /* Capture Area */
+        #capture-area { background: #f4f4f9; display: flex; flex-direction: column; gap: 12px; padding: 8px; border-radius: 8px; }
 
-        /* Map Bereich */
+        /* Map */
         #map-container { height: 45vh; min-height: 350px; position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #ccc; z-index: 1; }
         #map { width: 100%; height: 100%; }
         
@@ -49,11 +48,13 @@
         .legend-item { display: flex; align-items: center; margin-bottom: 4px; }
         .legend-color { width: 14px; height: 14px; border-radius: 3px; margin-right: 8px; }
 
-        /* Floating Time Controls (Schwebend auf der Karte) */
-        .floating-time-controls { position: absolute; top: 10px; right: 10px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 8px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 6px; max-width: 220px; }
+        /* Floating Controls (Einklappbar) */
+        .floating-controls { position: absolute; top: 10px; right: 10px; z-index: 1000; background: rgba(255,255,255,0.95); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); width: 220px; overflow: hidden; transition: all 0.3s ease; }
+        .fc-header { padding: 8px 10px; background: #2c3e50; color: white; font-weight: bold; font-size: 13px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .fc-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
         .time-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
         .time-label { font-weight: bold; font-size: 12px; width: 35px; }
-        input[type="time"] { padding: 4px; font-size: 13px; flex-grow: 1; border: 1px solid #aaa; border-radius: 4px; }
+        input[type="time"] { padding: 4px; font-size: 13px; flex-grow: 1; border: 1px solid #aaa; border-radius: 4px; width: 100%; }
         .btn-adjust { padding: 4px 6px; font-size: 11px; border-radius: 4px; color: #fff; border: none; cursor: pointer; font-weight: bold; }
         .btn-start { background: #28a745; }
         .btn-end { background: #dc3545; }
@@ -62,28 +63,30 @@
         /* Chart Area */
         .chart-container { width: 100%; height: 180px; position: relative; background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 5px; }
         
-        /* Stats */
+        /* Stats & Unit Toggle */
+        .stats-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: -4px; padding: 0 5px; }
+        .unit-toggle { display: flex; background: #dee2e6; border-radius: 6px; overflow: hidden; }
+        .unit-btn { padding: 4px 10px; font-size: 12px; border: none; background: transparent; cursor: pointer; font-weight: bold; color: #666; }
+        .unit-btn.active { background: #007bff; color: white; }
+
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #ccc; text-align: center; }
         .stat-box { display: flex; flex-direction: column; }
         .stat-value { font-weight: bold; font-size: 1.1em; color: #2c3e50; }
-        .stat-label { color: #666; font-size: 0.8em; text-transform: uppercase; }
+        .stat-label { color: #666; font-size: 0.75em; text-transform: uppercase; }
 
         .footer { text-align: center; font-size: 11px; color: #888; padding: 10px 0; margin-top: auto; }
-        .footer a { color: #007bff; text-decoration: none; }
     </style>
 </head>
 <body>
 
-    <!-- Ladebildschirm -->
     <div id="loader">
         <div class="spinner"></div>
-        <strong style="color:#2c3e50; font-size:18px;">Lese GPS-Daten...</strong>
-        <span style="color:#666; font-size:14px; margin-top:5px;">Dies kann einige Sekunden dauern</span>
+        <strong id="loaderText" style="color:#2c3e50; font-size:18px;">Verarbeite...</strong>
     </div>
 
     <div class="container">
         
-        <!-- Header (Wird nicht gedruckt/exportiert) -->
+        <!-- Header -->
         <div class="row no-print">
             <label class="btn btn-upload" style="flex: 1;">
                 📁 CSV/GPX laden
@@ -94,7 +97,7 @@
             </select>
         </div>
 
-        <!-- BEREICH FÜR DEN BILD-EXPORT -->
+        <!-- CAPTURE AREA (wird als Bild exportiert) -->
         <div id="capture-area">
             
             <div id="map-container">
@@ -107,128 +110,178 @@
                     <div class="legend-item"><div class="legend-color" style="background:#dc3545;"></div> Auto (&gt;30 km/h)</div>
                 </div>
 
-                <!-- Kontrollen schweben auf der Karte -->
-                <div class="floating-time-controls">
-                    <div class="time-row">
-                        <span class="time-label" style="color:#28a745">Start:</span>
-                        <button class="btn-adjust btn-start" onclick="adjustTime('start', -1)">-1m</button>
-                        <input type="time" id="timeStart" step="1" disabled onchange="manualTimeInput('start')">
-                        <button class="btn-adjust btn-start" onclick="adjustTime('start', 1)">+1m</button>
+                <!-- Floating Controls (Einklappbar) -->
+                <div class="floating-controls" id="floatingControls">
+                    <div class="fc-header" onclick="toggleControls()">
+                        <span>⚙️ Auswahl</span>
+                        <span id="fc-icon">−</span>
                     </div>
-                    <div class="time-row">
-                        <span class="time-label" style="color:#dc3545">Ende:</span>
-                        <button class="btn-adjust btn-end" onclick="adjustTime('end', -1)">-1m</button>
-                        <input type="time" id="timeEnd" step="1" disabled onchange="manualTimeInput('end')">
-                        <button class="btn-adjust btn-end" onclick="adjustTime('end', 1)">+1m</button>
+                    <div class="fc-body" id="fc-body">
+                        <div class="time-row">
+                            <span class="time-label" style="color:#28a745">Start:</span>
+                            <button class="btn-adjust btn-start" onclick="adjustTime('start', -1)">-1m</button>
+                            <input type="time" id="timeStart" step="1" disabled onchange="manualTimeInput('start')">
+                            <button class="btn-adjust btn-start" onclick="adjustTime('start', 1)">+1m</button>
+                        </div>
+                        <div class="time-row">
+                            <span class="time-label" style="color:#dc3545">Ende:</span>
+                            <button class="btn-adjust btn-end" onclick="adjustTime('end', -1)">-1m</button>
+                            <input type="time" id="timeEnd" step="1" disabled onchange="manualTimeInput('end')">
+                            <button class="btn-adjust btn-end" onclick="adjustTime('end', 1)">+1m</button>
+                        </div>
+                        <button class="btn-adjust btn-gray" onclick="resetSelection()">↺ Gesamten Tag</button>
                     </div>
-                    <button class="btn-adjust btn-gray" onclick="resetSelection()">↺ Gesamten Tag anzeigen</button>
                 </div>
             </div>
 
-            <!-- Diagramm -->
+            <!-- Stats & Einheiten Toggle -->
+            <div class="stats-header">
+                <div style="font-weight:bold; font-size:14px; color:#2c3e50;" id="stWeather">🌤️ Wetter: -</div>
+                <div class="unit-toggle">
+                    <button class="unit-btn active" id="btnKmh" onclick="setUnit('kmh')">km/h</button>
+                    <button class="unit-btn" id="btnPace" onclick="setUnit('pace')">min/km</button>
+                </div>
+            </div>
+
             <div class="chart-container">
                 <canvas id="profileChart"></canvas>
             </div>
 
-            <!-- Statistiken -->
             <div class="stats-grid">
                 <div class="stat-box"><span class="stat-label">Datum</span><span class="stat-value" id="stDate">-</span></div>
                 <div class="stat-box"><span class="stat-label">Aktivität</span><span class="stat-value" id="stActivity">-</span></div>
                 <div class="stat-box"><span class="stat-label">Distanz</span><span class="stat-value" id="stDist">- km</span></div>
                 
                 <div class="stat-box"><span class="stat-label">Dauer</span><span class="stat-value" id="stTime">- min</span></div>
-                <div class="stat-box"><span class="stat-label">Ø Speed</span><span class="stat-value" id="stAvgSpd">- km/h</span></div>
-                <div class="stat-box"><span class="stat-label">Max Speed</span><span class="stat-value" id="stMaxSpd">- km/h</span></div>
+                <div class="stat-box"><span class="stat-label" id="lblAvgSpd">Ø Speed</span><span class="stat-value" id="stAvgSpd">-</span></div>
+                <div class="stat-box"><span class="stat-label" id="lblMaxSpd">Max Speed</span><span class="stat-value" id="stMaxSpd">-</span></div>
                 
                 <div class="stat-box"><span class="stat-label">Aufstieg</span><span class="stat-value" id="stEleUp" style="color:#28a745">- m</span></div>
                 <div class="stat-box"><span class="stat-label">Abstieg</span><span class="stat-value" id="stEleDown" style="color:#dc3545">- m</span></div>
                 <div class="stat-box"><span class="stat-label">Ø Höhe</span><span class="stat-value" id="stEleAvg">- m</span></div>
             </div>
         </div>
-        <!-- ENDE CAPTURE AREA -->
 
-        <!-- Export Buttons (Wird nicht gedruckt) -->
-        <div class="row no-print" style="margin-top: 5px;">
+        <div class="row no-print">
             <button id="exportBtn" class="btn btn-export" disabled>💾 GPX Export</button>
-            <button id="screenshotBtn" class="btn btn-screenshot" disabled>📸 PNG Bild</button>
+            <button id="screenshotBtn" class="btn btn-screenshot" disabled>📸 Screenshot</button>
         </div>
         
-        <div class="footer no-print">
-            GPS Editor Pro <b>v1.4.0</b> | © 2026 Basecore | <a href="https://github.com/basecore/GPS-Editor" target="_blank">GitHub Projekt</a>
-        </div>
+        <div class="footer no-print">GPS Editor Pro <b>v1.5.0</b> | © 2026 Basecore</div>
     </div>
 
     <script>
-        // --- MAP SETUP (WICHTIG: crossOrigin: true für Screenshot-Funktion!) ---
-        const map = L.map('map').setView([48.1351, 11.5820], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-            attribution: '© OSMap',
-            crossOrigin: true 
-        }).addTo(map);
+        // --- APP STATE ---
+        let map = L.map('map').setView([48.1351, 11.5820], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSMap', crossOrigin: true }).addTo(map);
 
         let globalPointsByDate = {};
         let currentDayPoints = [];
         let trackLayerGroup = L.layerGroup().addTo(map);
-        let chartCursorMarker = null;
-        let mapClickMarker = null;
-        let chartInstance = null;
+        let chartCursorMarker = null, mapClickMarker = null, chartInstance = null;
         
-        let selStartIdx = 0;
-        let selEndIdx = 0;
+        let selStartIdx = 0, selEndIdx = 0;
+        let usePace = false; // Toggle für min/km vs km/h
+        let isControlsOpen = true;
 
         const loader = document.getElementById('loader');
+        const loaderText = document.getElementById('loaderText');
         const dateSelect = document.getElementById('dateSelect');
         const exportBtn = document.getElementById('exportBtn');
         const screenshotBtn = document.getElementById('screenshotBtn');
         const timeStart = document.getElementById('timeStart');
         const timeEnd = document.getElementById('timeEnd');
 
-        // --- HELPER ---
+        // --- INIT DUMMY CHART ---
+        function initDummyChart() {
+            const ctx = document.getElementById('profileChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['0km', '2km', '4km', '6km', '8km', '10km'],
+                    datasets: [
+                        { label: 'Speed (km/h)', data: [0, 15, 25, 45, 20, 0], yAxisID: 'ySpeed', borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.1)', fill: true, tension: 0.3, borderWidth: 2 },
+                        { label: 'Höhe (m)', data: [100, 150, 400, 300, 200, 100], yAxisID: 'yEle', borderColor: '#6c757d', backgroundColor: 'rgba(108, 117, 125, 0.1)', fill: true, tension: 0.3, borderWidth: 1 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    scales: { ySpeed: { position: 'left', suggestedMax: 50 }, yEle: { position: 'right', suggestedMax: 500, grid: {drawOnChartArea: false} } }
+                }
+            });
+        }
+        initDummyChart();
+
+        // --- HELPER & FORMATTING ---
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3, p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
             const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
             return R * 2 * Math.atan2(Math.sqrt(Math.sin(dp/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2), Math.sqrt(1-(Math.sin(dp/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2)));
         }
+        function formatTimeForInput(isoStr) { return new Date(isoStr).toTimeString().split(' ')[0]; }
         
-        function formatTimeForInput(isoStr) {
-            return new Date(isoStr).toTimeString().split(' ')[0]; // HH:MM:SS
+        function formatPace(kmh) {
+            if (!kmh || kmh < 0.5) return '-';
+            let pace = 60 / kmh;
+            if (pace > 60) return '>60:00';
+            let m = Math.floor(pace);
+            let s = Math.round((pace - m) * 60);
+            if (s === 60) { m++; s = 0; }
+            return m + ':' + (s < 10 ? '0' : '') + s;
         }
-        
-        function formatDateGerman(isoStr) {
-            return new Date(isoStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        function paceToDecimal(kmh) {
+            if (!kmh || kmh < 0.5) return null;
+            let pace = 60 / kmh;
+            return pace > 60 ? null : pace;
         }
 
-        // --- MAP CLICK HANDLER ---
-        map.on('click', function(e) {
-            if(currentDayPoints.length === 0) return;
+        // --- UI TOGGLES ---
+        function toggleControls() {
+            isControlsOpen = !isControlsOpen;
+            document.getElementById('fc-body').style.display = isControlsOpen ? 'flex' : 'none';
+            document.getElementById('fc-icon').innerText = isControlsOpen ? '−' : '⚙️';
+        }
+
+        window.setUnit = function(unit) {
+            usePace = (unit === 'pace');
+            document.getElementById('btnKmh').className = 'unit-btn' + (!usePace ? ' active' : '');
+            document.getElementById('btnPace').className = 'unit-btn' + (usePace ? ' active' : '');
             
-            let closestIdx = -1, minDist = Infinity;
-            currentDayPoints.forEach((p, idx) => {
-                let dist = e.latlng.distanceTo([p.lat, p.lon]);
-                if(dist < minDist) { minDist = dist; closestIdx = idx; }
-            });
+            document.getElementById('lblAvgSpd').innerText = usePace ? 'Ø Pace' : 'Ø Speed';
+            document.getElementById('lblMaxSpd').innerText = usePace ? 'Max Pace' : 'Max Speed';
+            
+            if(currentDayPoints.length > 0) updateView(false); // Update without refitting map
+        };
 
-            if(minDist < 150 && closestIdx !== -1) { 
-                if(mapClickMarker) map.removeLayer(mapClickMarker);
-                
-                let pt = currentDayPoints[closestIdx];
-                let speedKmh = pt.speedKmh ? pt.speedKmh.toFixed(1) : '-';
-
-                mapClickMarker = L.circleMarker([pt.lat, pt.lon], { color: '#000', fillColor: '#fff', fillOpacity: 1, radius: 7, weight: 3 }).addTo(map);
-
-                let popupContent = `
-                    <div style="font-size:13px; margin-bottom:6px; line-height:1.4;">
-                        <b>Zeit:</b> ${formatTimeForInput(pt.time)}<br>
-                        <b>Geschw.:</b> ${speedKmh} km/h
-                    </div>
-                    <div style="display:flex; gap:5px;">
-                        <button class="btn-adjust btn-start" onclick="applyIndex('start', ${closestIdx})">Als Start</button>
-                        <button class="btn-adjust btn-end" onclick="applyIndex('end', ${closestIdx})">Als Ende</button>
-                    </div>
-                `;
-                mapClickMarker.bindPopup(popupContent).openPopup();
-            }
-        });
+        // --- WEATHER API (Open-Meteo) ---
+        async function fetchWeather(lat, lon, dateString, timeString) {
+            try {
+                // Versuche Archiv-API für vergangene Tage
+                let url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${dateString}&end_date=${dateString}&hourly=temperature_2m,windspeed_10m,winddirection_10m`;
+                let res = await fetch(url);
+                if(!res.ok) {
+                    // Fallback Forecast API für heute/gestern
+                    url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&start_date=${dateString}&end_date=${dateString}&hourly=temperature_2m,windspeed_10m,winddirection_10m`;
+                    res = await fetch(url);
+                }
+                if(res.ok) {
+                    let data = await res.json();
+                    let hour = parseInt(timeString.split(':')[0]);
+                    if(data.hourly && data.hourly.temperature_2m[hour] !== undefined) {
+                        let t = data.hourly.temperature_2m[hour];
+                        let w = data.hourly.windspeed_10m[hour];
+                        let d = data.hourly.winddirection_10m[hour];
+                        
+                        // Himmelsrichtung
+                        const dirs = ["N","NO","O","SO","S","SW","W","NW"];
+                        let dirStr = dirs[Math.round(d / 45) % 8];
+                        
+                        document.getElementById('stWeather').innerText = `🌤️ Wetter: ${t}°C | 💨 Wind: ${w} km/h (${dirStr})`;
+                        return;
+                    }
+                }
+            } catch(e) { console.log("Wetter Fehler", e); }
+            document.getElementById('stWeather').innerText = `🌤️ Wetter: Keine Daten verfügbar`;
+        }
 
         // --- DATA PROCESSING ---
         function processAllPoints(points) {
@@ -243,33 +296,28 @@
 
             let dates = Object.keys(globalPointsByDate).sort();
             dateSelect.innerHTML = '';
-            if (dates.length === 0) { alert("Keine gültigen GPS Daten gefunden"); loader.style.display = 'none'; return; }
+            if (dates.length === 0) { alert("Keine gültigen GPS Daten"); loader.style.display = 'none'; return; }
 
             dates.forEach(d => {
                 let opt = document.createElement('option'); opt.value = d;
-                opt.text = new Date(d).toLocaleDateString('de-DE', { weekday: 'short', month: '2-digit', day: '2-digit', year: 'numeric' }) + ` (${globalPointsByDate[d].length} Pkt)`;
+                opt.text = new Date(d).toLocaleDateString('de-DE') + ` (${globalPointsByDate[d].length} Pkt)`;
                 dateSelect.appendChild(opt);
             });
 
             dateSelect.disabled = false;
-            loadDay(dates[0]); // Lädt direkt den ersten Tag
+            loadDay(dates[0]);
         }
 
-        // *** HIER IST DER BUGFIX: Event Listener für das Dropdown-Menü ***
-        dateSelect.addEventListener('change', (e) => {
-            loadDay(e.target.value);
-        });
+        dateSelect.addEventListener('change', (e) => loadDay(e.target.value));
 
         function loadDay(dateString) {
-            loader.style.display = 'flex'; // Spinner an
-            
-            // Alte Marker aufräumen, falls man den Tag wechselt
+            loaderText.innerText = 'Lade Tag...';
+            loader.style.display = 'flex';
             if(chartCursorMarker) { map.removeLayer(chartCursorMarker); chartCursorMarker = null; }
             if(mapClickMarker) { map.removeLayer(mapClickMarker); mapClickMarker = null; }
             
             setTimeout(() => {
                 currentDayPoints = globalPointsByDate[dateString].sort((a,b) => new Date(a.time) - new Date(b.time));
-                
                 let totalDist = 0;
                 for(let i = 0; i < currentDayPoints.length; i++) {
                     let p = currentDayPoints[i];
@@ -279,30 +327,34 @@
                         totalDist += d;
                         let hrs = (new Date(p.time) - new Date(prev.time)) / 3600000;
                         p.speedKmh = (p.csvSpeed > 0) ? p.csvSpeed * 3.6 : (hrs > 0 ? d / hrs : 0);
-                    } else {
-                        p.speedKmh = 0;
-                    }
+                    } else { p.speedKmh = 0; }
                     p.cumDist = totalDist; 
                 }
 
-                resetSelection();
+                resetSelection(true); // true = refit map
+                
+                // Wetter laden (für die Mitte des Tracks)
+                let midPt = currentDayPoints[Math.floor(currentDayPoints.length/2)];
+                fetchWeather(midPt.lat, midPt.lon, dateString, formatTimeForInput(midPt.time));
+                
                 loader.style.display = 'none'; 
             }, 100);
         }
 
         // --- UPDATE VIEW & CHART ---
-        function updateView() {
+        function updateView(refitMap = false) {
             timeStart.value = formatTimeForInput(currentDayPoints[selStartIdx].time);
             timeEnd.value = formatTimeForInput(currentDayPoints[selEndIdx].time);
-            timeStart.disabled = false;
-            timeEnd.disabled = false;
+            timeStart.disabled = false; timeEnd.disabled = false;
             
             drawMapTrack();
             updateChart();
             analyzeSelection(currentDayPoints.slice(selStartIdx, selEndIdx + 1));
             
-            let bounds = L.latLngBounds(currentDayPoints.slice(selStartIdx, selEndIdx + 1).map(p => [p.lat, p.lon]));
-            map.fitBounds(bounds, {padding: [20, 20]});
+            if(refitMap) {
+                let bounds = L.latLngBounds(currentDayPoints.slice(selStartIdx, selEndIdx + 1).map(p => [p.lat, p.lon]));
+                map.fitBounds(bounds, {padding: [20, 20]});
+            }
         }
 
         function drawMapTrack() {
@@ -312,7 +364,6 @@
             for(let i = 1; i < currentDayPoints.length; i++) {
                 let p1 = currentDayPoints[i-1], p2 = currentDayPoints[i];
                 let isSelected = (i >= selStartIdx && i <= selEndIdx);
-                
                 let color = '#28a745'; 
                 if(p2.speedKmh > 30) color = '#dc3545'; else if(p2.speedKmh > 15) color = '#6f42c1'; else if(p2.speedKmh > 7) color = '#fd7e14';
 
@@ -325,20 +376,18 @@
                 } else { currentCoords.push([p2.lat, p2.lon]); }
             }
             if(currentCoords.length > 0) L.polyline(currentCoords, { color: currentColor, weight: currentSelected ? 6 : 3, opacity: currentSelected ? 1.0 : 0.3 }).addTo(trackLayerGroup);
-            
             L.circleMarker([currentDayPoints[selStartIdx].lat, currentDayPoints[selStartIdx].lon], {color: '#28a745', radius: 6, fillOpacity: 1}).addTo(trackLayerGroup);
             L.circleMarker([currentDayPoints[selEndIdx].lat, currentDayPoints[selEndIdx].lon], {color: '#dc3545', radius: 6, fillOpacity: 1}).addTo(trackLayerGroup);
         }
 
         function updateChart() {
             const ctx = document.getElementById('profileChart').getContext('2d');
-            let slicedPoints = currentDayPoints.slice(selStartIdx, selEndIdx + 1);
+            let sliced = currentDayPoints.slice(selStartIdx, selEndIdx + 1);
+            let startDist = sliced[0].cumDist;
             
-            let startDist = slicedPoints[0].cumDist;
-            let labels = slicedPoints.map(p => (p.cumDist - startDist).toFixed(2) + ' km');
-            
-            let eleData = slicedPoints.map(p => p.ele);
-            let speedData = slicedPoints.map(p => p.speedKmh > 100 ? null : p.speedKmh);
+            let labels = sliced.map(p => (p.cumDist - startDist).toFixed(2) + ' km');
+            let eleData = sliced.map(p => p.ele);
+            let speedData = sliced.map(p => usePace ? paceToDecimal(p.speedKmh) : (p.speedKmh > 100 ? null : p.speedKmh));
 
             if(chartInstance) chartInstance.destroy();
 
@@ -347,25 +396,43 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Speed (km/h)', data: speedData, yAxisID: 'ySpeed', borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.2)', fill: true, tension: 0.2, pointRadius: 0, borderWidth: 2, order: 1 },
+                        { label: usePace ? 'Pace' : 'Speed', data: speedData, yAxisID: 'ySpeed', borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.2)', fill: true, tension: 0.2, pointRadius: 0, borderWidth: 2, order: 1 },
                         { label: 'Höhe (m)', data: eleData, yAxisID: 'yEle', borderColor: '#6c757d', backgroundColor: 'rgba(108, 117, 125, 0.2)', fill: true, tension: 0.1, pointRadius: 0, borderWidth: 1, order: 2 }
                     ]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12, font: {size: 10} } } },
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12, font: {size: 10} } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    let val = ctx.raw;
+                                    if(ctx.datasetIndex === 0 && usePace) {
+                                        let m = Math.floor(val), s = Math.round((val-m)*60);
+                                        return `Pace: ${m}:${s<10?'0':''}${s} min/km`;
+                                    }
+                                    return `${ctx.dataset.label}: ${val.toFixed(1)}`;
+                                }
+                            }
+                        }
+                    },
                     scales: {
                         x: { ticks: { maxTicksLimit: 5, font: {size: 10} } },
-                        ySpeed: { type: 'linear', position: 'left', title: {display: true, text: 'Speed (km/h)', font: {size: 10}, color: '#007bff'}, ticks: {font: {size: 10}, color: '#007bff'} },
+                        ySpeed: { 
+                            type: 'linear', position: 'left', reverse: usePace, // Y-Achse umdrehen bei Pace!
+                            title: {display: true, text: usePace ? 'Pace (min/km)' : 'Speed (km/h)', font: {size: 10}, color: '#007bff'}, 
+                            ticks: {font: {size: 10}, color: '#007bff', callback: function(val) {
+                                if(!usePace) return val;
+                                let m = Math.floor(val), s = Math.round((val-m)*60);
+                                return m+':'+(s<10?'0':'')+s;
+                            }} 
+                        },
                         yEle: { type: 'linear', position: 'right', grid: {drawOnChartArea: false}, title: {display: true, text: 'Höhe (m)', font: {size: 10}, color: '#6c757d'}, ticks: {font: {size: 10}, color: '#6c757d'} }
                     },
                     onHover: (e, activeEls) => {
                         if (activeEls.length > 0) {
-                            let localIdx = activeEls[0].index;
-                            let globalIdx = selStartIdx + localIdx;
+                            let globalIdx = selStartIdx + activeEls[0].index;
                             let pt = currentDayPoints[globalIdx];
-                            
                             if(!chartCursorMarker) chartCursorMarker = L.circleMarker([pt.lat, pt.lon], {color: 'black', fillColor: 'white', fillOpacity: 1, radius: 7, weight: 3}).addTo(map);
                             else chartCursorMarker.setLatLng([pt.lat, pt.lon]);
                         }
@@ -374,84 +441,92 @@
             });
         }
 
-        // --- ZEITSTEUERUNG UND MANUELLE EINGABE ---
+        // --- ZEITSTEUERUNG ---
         window.applyIndex = function(type, idx) {
             if(type === 'start') { if(idx > selEndIdx) selEndIdx = idx; selStartIdx = idx; }
             if(type === 'end') { if(idx < selStartIdx) selStartIdx = idx; selEndIdx = idx; }
             if(mapClickMarker) map.closePopup();
-            updateView();
+            updateView(true);
         };
-
-        window.adjustTime = function(type, minutes) {
-            let targetIdx = type === 'start' ? selStartIdx : selEndIdx;
-            let targetTime = new Date(currentDayPoints[targetIdx].time).getTime() + (minutes * 60000);
-            
-            let closestIdx = targetIdx, minDiff = Infinity;
-            currentDayPoints.forEach((p, idx) => {
-                let diff = Math.abs(new Date(p.time).getTime() - targetTime);
-                if(diff < minDiff) { minDiff = diff; closestIdx = idx; }
-            });
-            applyIndex(type, closestIdx);
+        window.adjustTime = function(type, mins) {
+            let tIdx = type === 'start' ? selStartIdx : selEndIdx;
+            let target = new Date(currentDayPoints[tIdx].time).getTime() + (mins * 60000);
+            let closest = tIdx, minDiff = Infinity;
+            currentDayPoints.forEach((p, i) => { let d = Math.abs(new Date(p.time).getTime() - target); if(d < minDiff){ minDiff = d; closest = i; } });
+            applyIndex(type, closest);
         };
-
         window.manualTimeInput = function(type) {
-            let inputStr = type === 'start' ? timeStart.value : timeEnd.value;
-            let targetTimeOfDay = parseInt(inputStr.split(':')[0])*3600 + parseInt(inputStr.split(':')[1])*60 + parseInt(inputStr.split(':')[2]||0);
-            
-            let closestIdx = type === 'start' ? selStartIdx : selEndIdx, minDiff = Infinity;
-            currentDayPoints.forEach((p, idx) => {
-                let pTime = new Date(p.time);
-                let pTimeOfDay = pTime.getHours()*3600 + pTime.getMinutes()*60 + pTime.getSeconds();
-                let diff = Math.abs(pTimeOfDay - targetTimeOfDay);
-                if(diff < minDiff) { minDiff = diff; closestIdx = idx; }
+            let val = type === 'start' ? timeStart.value : timeEnd.value;
+            let targetSecs = parseInt(val.split(':')[0])*3600 + parseInt(val.split(':')[1])*60 + parseInt(val.split(':')[2]||0);
+            let closest = type === 'start' ? selStartIdx : selEndIdx, minDiff = Infinity;
+            currentDayPoints.forEach((p, i) => {
+                let d = new Date(p.time);
+                let secs = d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds();
+                let diff = Math.abs(secs - targetSecs);
+                if(diff < minDiff) { minDiff = diff; closest = i; }
             });
-            applyIndex(type, closestIdx);
+            applyIndex(type, closest);
         }
-
-        window.resetSelection = function() {
-            selStartIdx = 0;
-            selEndIdx = currentDayPoints.length - 1;
-            exportBtn.disabled = false;
-            screenshotBtn.disabled = false;
-            updateView();
+        window.resetSelection = function(refit = true) {
+            selStartIdx = 0; selEndIdx = currentDayPoints.length - 1;
+            exportBtn.disabled = false; screenshotBtn.disabled = false;
+            updateView(refit);
         };
 
         function analyzeSelection(points) {
             if(points.length < 2) return;
-            let totalDist = 0, eleUp = 0, eleDown = 0, maxSpeed = 0, sumEle = 0, validEleCount = 0;
+            let totalDist = 0, eleUp = 0, eleDown = 0, maxSpeed = 0, sumEle = 0, validEle = 0;
             let durationMin = (new Date(points[points.length-1].time) - new Date(points[0].time)) / 60000;
 
             for(let i=0; i<points.length; i++) {
                 if(i > 0) {
                     totalDist += getDistance(points[i-1].lat, points[i-1].lon, points[i].lat, points[i].lon) / 1000;
-                    if(points[i].ele && points[i-1].ele) {
-                        let diff = points[i].ele - points[i-1].ele;
-                        if(diff > 0) eleUp += diff; else eleDown += Math.abs(diff);
-                    }
+                    if(points[i].ele && points[i-1].ele) { let diff = points[i].ele - points[i-1].ele; if(diff > 0) eleUp += diff; else eleDown += Math.abs(diff); }
                 }
                 if(points[i].speedKmh > maxSpeed && points[i].speedKmh < 100) maxSpeed = points[i].speedKmh;
-                if(points[i].ele) { sumEle += points[i].ele; validEleCount++; }
+                if(points[i].ele) { sumEle += points[i].ele; validEle++; }
             }
 
             let avgKmh = durationMin > 0 ? totalDist / (durationMin / 60) : 0;
             let act = "Gehen"; if(avgKmh>7) act="Joggen"; if(avgKmh>15) act="Rad"; if(avgKmh>30) act="Auto";
 
-            document.getElementById('stDate').innerText = formatDateGerman(points[0].time);
+            document.getElementById('stDate').innerText = new Date(points[0].time).toLocaleDateString('de-DE');
             document.getElementById('stActivity').innerText = act;
             document.getElementById('stDist').innerText = totalDist.toFixed(2) + ' km';
             document.getElementById('stTime').innerText = durationMin.toFixed(0) + ' min';
-            document.getElementById('stAvgSpd').innerText = avgKmh.toFixed(1) + ' km/h';
-            document.getElementById('stMaxSpd').innerText = maxSpeed.toFixed(1) + ' km/h';
+            
+            document.getElementById('stAvgSpd').innerText = usePace ? formatPace(avgKmh) : avgKmh.toFixed(1) + ' km/h';
+            // Bei Pace ist die "Maximalgeschwindigkeit" die niedrigste Min/km Zahl
+            document.getElementById('stMaxSpd').innerText = usePace ? formatPace(maxSpeed) : maxSpeed.toFixed(1) + ' km/h';
+            
             document.getElementById('stEleUp').innerText = eleUp.toFixed(0) + ' m';
             document.getElementById('stEleDown').innerText = eleDown.toFixed(0) + ' m';
-            document.getElementById('stEleAvg').innerText = validEleCount > 0 ? (sumEle/validEleCount).toFixed(0) + ' m' : '-';
+            document.getElementById('stEleAvg').innerText = validEle > 0 ? (sumEle/validEle).toFixed(0) + ' m' : '-';
         }
 
-        // --- FILE INPUT ---
+        // --- MAP CLICK ---
+        map.on('click', function(e) {
+            if(currentDayPoints.length === 0) return;
+            let closest = -1, minD = Infinity;
+            currentDayPoints.forEach((p, i) => { let d = e.latlng.distanceTo([p.lat, p.lon]); if(d < minD){ minD = d; closest = i; } });
+            if(minD < 150 && closest !== -1) { 
+                if(mapClickMarker) map.removeLayer(mapClickMarker);
+                let pt = currentDayPoints[closest];
+                mapClickMarker = L.circleMarker([pt.lat, pt.lon], { color: '#000', fillColor: '#fff', fillOpacity: 1, radius: 7, weight: 3 }).addTo(map);
+                let speedStr = usePace ? `Pace: ${formatPace(pt.speedKmh)} min/km` : `Speed: ${pt.speedKmh ? pt.speedKmh.toFixed(1) : '-'} km/h`;
+                
+                mapClickMarker.bindPopup(`
+                    <div style="font-size:13px; margin-bottom:6px;"><b>Zeit:</b> ${formatTimeForInput(pt.time)}<br><b>${speedStr}</b></div>
+                    <div style="display:flex; gap:5px;"><button class="btn-adjust btn-start" onclick="applyIndex('start', ${closest})">Als Start</button>
+                    <button class="btn-adjust btn-end" onclick="applyIndex('end', ${closest})">Als Ende</button></div>
+                `).openPopup();
+            }
+        });
+
+        // --- FILE IMPORT & EXPORT ---
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const f = e.target.files[0]; if(!f) return;
-            loader.style.display = 'flex'; 
-            
+            loaderText.innerText = 'Lese Datei...'; loader.style.display = 'flex'; 
             const r = new FileReader();
             r.onload = function(evt) {
                 const name = f.name.toLowerCase();
@@ -461,68 +536,57 @@
                         processAllPoints(pts);
                     }});
                 } else if(name.endsWith('.gpx')) {
-                    const parser = new DOMParser();
-                    const pts = parser.parseFromString(evt.target.result,"text/xml").getElementsByTagName('trkpt');
-                    let parsedPoints = [];
+                    const pts = new DOMParser().parseFromString(evt.target.result,"text/xml").getElementsByTagName('trkpt');
+                    let parsed = [];
                     for (let i = 0; i < pts.length; i++) {
                         let lat = parseFloat(pts[i].getAttribute('lat')), lon = parseFloat(pts[i].getAttribute('lon'));
                         let t = pts[i].getElementsByTagName('time')[0], e = pts[i].getElementsByTagName('ele')[0];
-                        if (!isNaN(lat) && !isNaN(lon)) parsedPoints.push({ lat: lat, lon: lon, ele: e ? parseFloat(e.textContent) : 0, time: t ? t.textContent : new Date().toISOString(), csvSpeed: 0 });
+                        if (!isNaN(lat) && !isNaN(lon)) parsed.push({ lat: lat, lon: lon, ele: e ? parseFloat(e.textContent) : 0, time: t ? t.textContent : new Date().toISOString(), csvSpeed: 0 });
                     }
-                    processAllPoints(parsedPoints);
+                    processAllPoints(parsed);
                 }
             };
             r.readAsText(f);
         });
 
-        // --- EXPORT GPX ---
         exportBtn.addEventListener('click', () => {
             if(currentDayPoints.length === 0) return;
             const sel = currentDayPoints.slice(selStartIdx, selEndIdx + 1);
             let gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="GPS Editor Pro v1.4.0" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="GPS Editor Pro" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><name>Export_${dateSelect.value}</name><trkseg>
 `;
             sel.forEach(p => { gpx += `      <trkpt lat="${p.lat}" lon="${p.lon}"><ele>${p.ele.toFixed(1)}</ele><time>${new Date(p.time).toISOString()}</time></trkpt>
 `; });
             gpx += `    </trkseg></trk></gpx>`;
-            
-            const blob = new Blob([gpx], {type: "application/gpx+xml"});
-            const a = document.createElement("a"); 
-            a.href = URL.createObjectURL(blob); 
-            a.download = `Jogging_${dateSelect.value}.gpx`; 
-            a.click();
-            URL.revokeObjectURL(a.href);
+            const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([gpx], {type: "application/gpx+xml"})); a.download = `Jogging_${dateSelect.value}.gpx`; a.click();
         });
 
-        // --- EXPORT PNG (SCREENSHOT) ---
+        // --- SCREENSHOT FUNKTION (Zentriert Karte vorher) ---
         screenshotBtn.addEventListener('click', () => {
-            loader.style.display = 'flex';
-            document.querySelector('#loader strong').innerText = 'Erstelle Bild...';
+            loaderText.innerText = 'Bereite Screenshot vor...'; loader.style.display = 'flex';
             
-            // Kurzes Timeout, damit das UI Zeit hat, den Loader anzuzeigen
+            // UI für Screenshot optimieren
+            let wasOpen = isControlsOpen;
+            if(isControlsOpen) toggleControls(); // Controls einklappen
+            if(mapClickMarker) map.closePopup();
+            
+            // Karte exakt zentrieren
+            let bounds = L.latLngBounds(currentDayPoints.slice(selStartIdx, selEndIdx + 1).map(p => [p.lat, p.lon]));
+            map.fitBounds(bounds, {padding: [10, 10], animate: false});
+            
+            // Warten bis Karte gerendert ist
             setTimeout(() => {
-                // Wir fotografieren exakt das Element "#capture-area"
-                html2canvas(document.getElementById('capture-area'), {
-                    useCORS: true,       // Wichtig für die Karten-Kacheln
-                    allowTaint: true,
-                    scale: 2,            // Hohe Auflösung
-                    backgroundColor: '#f4f4f9'
-                }).then(canvas => {
+                html2canvas(document.getElementById('capture-area'), { useCORS: true, scale: 2, backgroundColor: '#f4f4f9' }).then(canvas => {
                     let a = document.createElement('a');
                     a.href = canvas.toDataURL('image/png');
-                    let cleanDate = document.getElementById('stDate').innerText.replace(/./g, '-');
-                    a.download = `GPS_Report_${cleanDate}.png`;
+                    a.download = `GPS_Report_${document.getElementById('stDate').innerText.replace(/./g, '-')}.png`;
                     a.click();
                     
+                    if(wasOpen) toggleControls(); // UI wiederherstellen
                     loader.style.display = 'none';
-                    document.querySelector('#loader strong').innerText = 'Lese GPS-Daten...';
-                }).catch(err => {
-                    console.error('Screenshot Fehler:', err);
-                    alert("Es gab einen Fehler beim Erstellen des Bildes.");
-                    loader.style.display = 'none';
-                });
-            }, 500);
+                }).catch(e => { alert("Screenshot Fehler"); loader.style.display = 'none'; });
+            }, 600);
         });
     </script>
 </body>
