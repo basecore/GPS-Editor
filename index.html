@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GPS Track Analyzer & Editor</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        #map { flex-grow: 1; width: 100%; }
+        .ui-panel { background: white; padding: 15px; box-shadow: 0 -2px 10px rgba(0,0px,0,0.1); z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+        .stats { font-size: 0.9em; color: #333; background: #f8f9fa; padding: 10px; border-radius: 8px; }
+        .btn-group { display: flex; gap: 10px; }
+        button, .file-upload-label { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #007bff; color: white; font-weight: bold; text-align: center; cursor: pointer; text-decoration: none; display: inline-block; }
+        button:disabled { background: #ccc; }
+        .file-upload-label { background: #28a745; }
+        input[type="file"] { display: none; }
+        .instructions { font-size: 0.8em; color: #666; text-align: center; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="ui-panel">
+        <div class="stats" id="statsPanel">
+            Warte auf Datei-Import... (GPX, KML, CSV)
+        </div>
+        <div class="instructions" id="instructions">Lade eine Datei hoch, um zu starten.</div>
+        <div class="btn-group">
+            <label class="file-upload-label">
+                Importieren
+                <input type="file" id="fileInput" accept=".gpx,.kml,.csv">
+            </label>
+            <button id="exportBtn" disabled>Auswahl als GPX Exportieren</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script>
+        // App State
+        let map = L.map('map').setView([51.1657, 10.4515], 6); // Default: Germany
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let currentTrack = [];
+        let polyline = null;
+        let markers = [];
+        let selectionStartIndex = 0;
+        let selectionEndIndex = 0;
+
+        const fileInput = document.getElementById('fileInput');
+        const statsPanel = document.getElementById('statsPanel');
+        const exportBtn = document.getElementById('exportBtn');
+        const instructions = document.getElementById('instructions');
+
+        // Distance Calculation (Haversine)
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // metres
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function analyzeTrack(points) {
+            if (points.length < 2) return;
+            
+            let totalDist = 0;
+            let totalTimeMs = new Date(points[points.length-1].time) - new Date(points[0].time);
+            
+            for(let i=1; i<points.length; i++) {
+                let dist = getDistance(points[i-1].lat, points[i-1].lon, points[i].lat, points[i].lon);
+                totalDist += dist;
+            }
+
+            let avgSpeedKmh = (totalDist / 1000) / (totalTimeMs / 3600000);
+            let activity = "Gehen/Stehen";
+            if (avgSpeedKmh > 7 && avgSpeedKmh <= 15) activity = "Joggen";
+            else if (avgSpeedKmh > 15 && avgSpeedKmh <= 30) activity = "Radfahren";
+            else if (avgSpeedKmh > 30) activity = "Autofahren";
+
+            statsPanel.innerHTML = `
+                <strong>Geschätzte Aktivität:</strong> ${activity}<br>
+                <strong>Distanz:</strong> ${(totalDist/1000).toFixed(2)} km<br>
+                <strong>Ø-Geschwindigkeit:</strong> ${avgSpeedKmh.toFixed(1)} km/h<br>
+                <strong>Punkte:</strong> ${points.length}
+            `;
+            instructions.innerText = "Tippe auf den Pfad, um Start/Ende des Exports zu setzen.";
+        }
+
+        function drawTrack() {
+            if (polyline) map.removeLayer(polyline);
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            if(currentTrack.length === 0) return;
+
+            const latlngs = currentTrack.map(p => [p.lat, p.lon]);
+            polyline = L.polyline(latlngs, {color: 'blue', weight: 4}).addTo(map);
+            map.fitBounds(polyline.getBounds());
+            
+            selectionStartIndex = 0;
+            selectionEndIndex = currentTrack.length - 1;
+            exportBtn.disabled = false;
+
+            // Add click interaction for basic slicing
+            polyline.on('click', function(e) {
+                // Find closest point index
+                let closestIndex = 0;
+                let minDist = Infinity;
+                currentTrack.forEach((p, idx) => {
+                    let d = getDistance(e.latlng.lat, e.latlng.lng, p.lat, p.lon);
+                    if(d < minDist) { minDist = d; closestIndex = idx; }
+                });
+
+                if (Math.abs(closestIndex - selectionStartIndex) < Math.abs(closestIndex - selectionEndIndex)) {
+                    selectionStartIndex = closestIndex;
+                } else {
+                    selectionEndIndex = closestIndex;
+                }
+                
+                if (selectionStartIndex > selectionEndIndex) {
+                    let temp = selectionStartIndex;
+                    selectionStartIndex = selectionEndIndex;
+                    selectionEndIndex = temp;
+                }
+
+                // Highlight selection
+                let selectedLatLngs = currentTrack.slice(selectionStartIndex, selectionEndIndex + 1).map(p => [p.lat, p.lon]);
+                L.polyline(selectedLatLngs, {color: 'red', weight: 6}).addTo(map);
+                
+                instructions.innerText = `Auswahl: Punkt ${selectionStartIndex} bis ${selectionEndIndex}. Bereit zum Export.`;
+            });
+            analyzeTrack(currentTrack);
+        }
+
+        function parseCSV(text) {
+            Papa.parse(text, {
+                header: true,
+                complete: function(results) {
+                    currentTrack = [];
+                    results.data.forEach(row => {
+                        if (row.lat && row.lon) {
+                            currentTrack.push({
+                                lat: parseFloat(row.lat),
+                                lon: parseFloat(row.lon),
+                                ele: row.elevation ? parseFloat(row.elevation) : 0,
+                                time: row.time || new Date().toISOString()
+                            });
+                        }
+                    });
+                    drawTrack();
+                }
+            });
+        }
+
+        function parseXML(text, tagName) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text,"text/xml");
+            const pts = xmlDoc.getElementsByTagName(tagName);
+            currentTrack = [];
+            for (let i = 0; i < pts.length; i++) {
+                let lat = parseFloat(pts[i].getAttribute('lat') || pts[i].getElementsByTagName('coordinates')[0]?.textContent.split(',')[1]);
+                let lon = parseFloat(pts[i].getAttribute('lon') || pts[i].getElementsByTagName('coordinates')[0]?.textContent.split(',')[0]);
+                let timeNode = pts[i].getElementsByTagName('time')[0];
+                let eleNode = pts[i].getElementsByTagName('ele')[0];
+                
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    currentTrack.push({
+                        lat: lat, lon: lon,
+                        ele: eleNode ? parseFloat(eleNode.textContent) : 0,
+                        time: timeNode ? timeNode.textContent : new Date().toISOString()
+                    });
+                }
+            }
+            drawTrack();
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contents = e.target.result;
+                if (file.name.endsWith('.csv')) parseCSV(contents);
+                else if (file.name.endsWith('.gpx')) parseXML(contents, 'trkpt');
+                else if (file.name.endsWith('.kml')) parseXML(contents, 'Placemark');
+            };
+            reader.readAsText(file);
+        });
+
+        exportBtn.addEventListener('click', () => {
+            if(currentTrack.length === 0) return;
+            const selectedPoints = currentTrack.slice(selectionStartIndex, selectionEndIndex + 1);
+            
+            let gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="WebApp" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Exportiertes Training</name>
+    <trkseg>
+`;
+            
+            selectedPoints.forEach(p => {
+                gpxContent += `      <trkpt lat="${p.lat}" lon="${p.lon}">
+`;
+                gpxContent += `        <ele>${p.ele}</ele>
+`;
+                gpxContent += `        <time>${p.time}</time>
+`;
+                gpxContent += `      </trkpt>
+`;
+            });
+            
+            gpxContent += `    </trkseg>
+  </trk>
+</gpx>`;
+            
+            const blob = new Blob([gpxContent], {type: "application/gpx+xml"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "training_export.gpx";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
