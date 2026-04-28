@@ -3,38 +3,337 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GPS Track Editor Pro</title>
+    <title>GPS Track Editor Ultimate</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2c3e50">
 
-    <!-- Leaflet CSS -->
+    <!-- Leaflet & Chart.js -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; background: #f4f4f9; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; background: #f4f4f9; overflow: hidden; }
         
-        /* Map Layout */
-        #map-container { position: relative; flex-grow: 1; width: 100%; min-height: 45vh; }
+        /* Map Container */
+        #map-container { position: relative; flex-grow: 1; width: 100%; min-height: 40vh; z-index: 1; }
         #map { width: 100%; height: 100%; }
         
-        /* Legende für Map */
         .legend { position: absolute; bottom: 20px; left: 10px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 8px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 12px; pointer-events: none; }
         .legend-item { display: flex; align-items: center; margin-bottom: 4px; }
         .legend-color { width: 16px; height: 16px; border-radius: 4px; margin-right: 8px; }
 
         /* UI Panel unten */
-        .ui-panel { background: white; padding: 15px; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 55vh; border-top-left-radius: 15px; border-top-right-radius: 15px; }
+        .ui-panel { background: white; padding: 15px; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 60vh; border-top-left-radius: 15px; border-top-right-radius: 15px; }
         
-        .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
-        select, input[type="file"] { padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #fff; font-size: 14px; width: 100%; }
+        .row { display: flex; gap: 10px; align-items: center; }
+        select, input[type="file"], .btn { padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; width: 100%; box-sizing: border-box; }
         input[type="file"] { display: none; }
         
-        .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; text-align: center; cursor: pointer; color: white; width: 100%; box-sizing: border-box; }
+        .btn { border: none; font-weight: bold; text-align: center; cursor: pointer; color: white; }
         .btn-upload { background: #2c3e50; }
-        .btn-export { background: #007bff; font-size: 16px; }
+        .btn-export { background: #007bff; font-size: 15px; }
         .btn:disabled { background: #ccc; cursor: not-allowed; }
 
-        /* Slider */
+        /* Chart Area */
+        .chart-container { width: 100%; height: 160px; position: relative; margin-top: 5px; }
+        
+        /* Stats */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; font-size: 0.8em; background: #f8f9fa; padding: 8px; border-radius: 8px; border: 1px solid #eee; text-align: center; }
+        .stat-box { display: flex; flex-direction: column; }
+        .stat-value { font-weight: bold; font-size: 1.1em; color: #2c3e50; }
+        .stat-label { color: #666; }
+
+        /* Selection Info Box */
+        .selection-info { display: flex; justify-content: space-between; background: #e9ecef; padding: 8px; border-radius: 8px; font-size: 0.9em; font-weight: bold; align-items: center; }
+        .btn-small { padding: 5px 10px; font-size: 12px; border-radius: 5px; color: white; border: none; cursor: pointer; }
+        .btn-start { background: #28a745; }
+        .btn-end { background: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <div id="map-container">
+        <div id="map"></div>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background:#28a745;"></div> Gehen (&lt;7 km/h)</div>
+            <div class="legend-item"><div class="legend-color" style="background:#fd7e14;"></div> Joggen (7-15 km/h)</div>
+            <div class="legend-item"><div class="legend-color" style="background:#6f42c1;"></div> Rad (15-30 km/h)</div>
+            <div class="legend-item"><div class="legend-color" style="background:#dc3545;"></div> Auto (&gt;30 km/h)</div>
+        </div>
+    </div>
+
+    <div class="ui-panel">
+        
+        <div class="row">
+            <label class="btn btn-upload" style="flex: 1;">
+                📁 CSV/GPX
+                <input type="file" id="fileInput" accept=".gpx,.kml,.csv">
+            </label>
+            <select id="dateSelect" style="flex: 1;" disabled>
+                <option>Keine Daten</option>
+            </select>
+        </div>
+
+        <!-- Diagramm für Höhe & Geschwindigkeit -->
+        <div class="chart-container">
+            <canvas id="profileChart"></canvas>
+        </div>
+
+        <!-- Auswahl-Steuerung -->
+        <div class="selection-info">
+            <div><span style="color:#28a745">Start:</span> <span id="lblStart">--:--</span></div>
+            <div><span style="color:#dc3545">Ende:</span> <span id="lblEnd">--:--</span></div>
+            <div style="display:flex; gap:5px;">
+                <button class="btn-small btn-start" onclick="setSelectionStart()">Set Start</button>
+                <button class="btn-small btn-end" onclick="setSelectionEnd()">Set Ende</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-box"><span class="stat-label">Aktivität</span><span class="stat-value" id="stActivity">-</span></div>
+            <div class="stat-box"><span class="stat-label">Distanz</span><span class="stat-value" id="stDist">- km</span></div>
+            <div class="stat-box"><span class="stat-label">Dauer</span><span class="stat-value" id="stTime">- min</span></div>
+            <div class="stat-box"><span class="stat-label">Ø km/h</span><span class="stat-value" id="stAvgSpd">-</span></div>
+            <div class="stat-box"><span class="stat-label">Max km/h</span><span class="stat-value" id="stMaxSpd">-</span></div>
+            <div class="stat-box"><span class="stat-label">Aufstieg</span><span class="stat-value" id="stEleUp">- m</span></div>
+        </div>
+
+        <button id="exportBtn" class="btn btn-export" disabled>💾 Auswahl als GPX Exportieren</button>
+    </div>
+
+    <script>
+        // --- MAP SETUP ---
+        const map = L.map('map').setView([48.1351, 11.5820], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSMap' }).addTo(map);
+
+        // --- STATE ---
+        let globalPointsByDate = {};
+        let currentDayPoints = [];
+        let trackLayerGroup = L.layerGroup().addTo(map);
+        let chartCursorMarker = null; // Der Punkt, der auf der Karte mit dem Diagramm wandert
+        let chartInstance = null;
+        
+        let selStartIdx = 0;
+        let selEndIdx = 0;
+        let hoverIdx = 0; // Der aktuell im Diagramm anvisierte Punkt
+
+        const dateSelect = document.getElementById('dateSelect');
+        const exportBtn = document.getElementById('exportBtn');
+
+        // --- HELPER ---
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3, p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+            const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
+            return R * 2 * Math.atan2(Math.sqrt(Math.sin(dp/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2), Math.sqrt(1-(Math.sin(dp/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2)));
+        }
+        function formatTime(isoStr) { return new Date(isoStr).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}); }
+
+        // --- DATA PROCESSING ---
+        function processAllPoints(points) {
+            globalPointsByDate = {};
+            points.forEach(p => {
+                let d = new Date(p.time);
+                if (isNaN(d.getTime())) return;
+                let dateStr = d.toISOString().split('T')[0];
+                if (!globalPointsByDate[dateStr]) globalPointsByDate[dateStr] = [];
+                globalPointsByDate[dateStr].push(p);
+            });
+
+            let dates = Object.keys(globalPointsByDate).sort();
+            dateSelect.innerHTML = '';
+            if (dates.length === 0) return;
+
+            dates.forEach(d => {
+                let opt = document.createElement('option'); opt.value = d;
+                opt.text = new Date(d).toLocaleDateString('de-DE', { weekday: 'short', month: '2-digit', day: '2-digit' }) + ` (${globalPointsByDate[d].length} Pkt)`;
+                dateSelect.appendChild(opt);
+            });
+
+            dateSelect.disabled = false;
+            loadDay(dates[0]);
+        }
+
+        function loadDay(dateString) {
+            currentDayPoints = globalPointsByDate[dateString].sort((a,b) => new Date(a.time) - new Date(b.time));
+            
+            // Vorberechnung Distanz & Speed für Chart
+            let totalDist = 0;
+            for(let i = 0; i < currentDayPoints.length; i++) {
+                let p = currentDayPoints[i];
+                if(i > 0) {
+                    let prev = currentDayPoints[i-1];
+                    let d = getDistance(prev.lat, prev.lon, p.lat, p.lon) / 1000;
+                    totalDist += d;
+                    let hrs = (new Date(p.time) - new Date(prev.time)) / 3600000;
+                    p.speedKmh = (p.csvSpeed > 0) ? p.csvSpeed * 3.6 : (hrs > 0 ? d / hrs : 0);
+                } else {
+                    p.speedKmh = 0;
+                }
+                p.cumDist = totalDist; // Kumulierte Distanz für X-Achse
+            }
+
+            selStartIdx = 0;
+            selEndIdx = currentDayPoints.length - 1;
+            hoverIdx = 0;
+            exportBtn.disabled = false;
+
+            updateView();
+            
+            // AUTOMATISCHER ZOOM AUF DEN GESAMTEN TRACK
+            let bounds = L.latLngBounds(currentDayPoints.map(p => [p.lat, p.lon]));
+            map.fitBounds(bounds, {padding: [20, 20]});
+        }
+
+        // --- DRAWING & CHART ---
+        function updateView() {
+            document.getElementById('lblStart').innerText = formatTime(currentDayPoints[selStartIdx].time);
+            document.getElementById('lblEnd').innerText = formatTime(currentDayPoints[selEndIdx].time);
+            
+            drawMapTrack();
+            updateChart();
+            analyzeSelection(currentDayPoints.slice(selStartIdx, selEndIdx + 1));
+        }
+
+        function drawMapTrack() {
+            trackLayerGroup.clearLayers();
+            let currentCoords = [], currentColor = null, currentSelected = null;
+
+            for(let i = 1; i < currentDayPoints.length; i++) {
+                let p1 = currentDayPoints[i-1], p2 = currentDayPoints[i];
+                let isSelected = (i >= selStartIdx && i <= selEndIdx);
+                
+                let color = '#28a745'; 
+                if(p2.speedKmh > 30) color = '#dc3545'; else if(p2.speedKmh > 15) color = '#6f42c1'; else if(p2.speedKmh > 7) color = '#fd7e14';
+
+                if(color !== currentColor || isSelected !== currentSelected) {
+                    if(currentCoords.length > 0) {
+                        L.polyline(currentCoords, { color: currentColor, weight: currentSelected ? 6 : 3, opacity: currentSelected ? 1.0 : 0.3 }).addTo(trackLayerGroup);
+                    }
+                    currentCoords = [[p1.lat, p1.lon], [p2.lat, p2.lon]];
+                    currentColor = color; currentSelected = isSelected;
+                } else { currentCoords.push([p2.lat, p2.lon]); }
+            }
+            if(currentCoords.length > 0) L.polyline(currentCoords, { color: currentColor, weight: currentSelected ? 6 : 3, opacity: currentSelected ? 1.0 : 0.3 }).addTo(trackLayerGroup);
+            
+            L.circleMarker([currentDayPoints[selStartIdx].lat, currentDayPoints[selStartIdx].lon], {color: '#28a745', radius: 5, fillOpacity: 1}).addTo(trackLayerGroup);
+            L.circleMarker([currentDayPoints[selEndIdx].lat, currentDayPoints[selEndIdx].lon], {color: '#dc3545', radius: 5, fillOpacity: 1}).addTo(trackLayerGroup);
+        }
+
+        // CHART.JS SETUP
+        function updateChart() {
+            const ctx = document.getElementById('profileChart').getContext('2d');
+            
+            let labels = currentDayPoints.map(p => p.cumDist.toFixed(1) + 'km');
+            let eleData = currentDayPoints.map(p => p.ele);
+            let speedData = currentDayPoints.map(p => p.speedKmh > 100 ? null : p.speedKmh); // Filtere irreale >100kmh Werte fürs Diagramm
+
+            // Dynamische Hintergrundfarbe für das Diagramm (Auswahl hell, Rest ausgegraut)
+            let bgColors = currentDayPoints.map((p, i) => (i >= selStartIdx && i <= selEndIdx) ? 'rgba(0, 123, 255, 0.4)' : 'rgba(200, 200, 200, 0.1)');
+
+            if(chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Höhe (m)', data: eleData, yAxisID: 'yEle', borderColor: '#888', backgroundColor: 'rgba(136, 136, 136, 0.2)', fill: true, tension: 0.1, pointRadius: 0, borderWidth: 1 },
+                        { label: 'Speed (km/h)', data: speedData, yAxisID: 'ySpeed', borderColor: '#007bff', backgroundColor: bgColors, fill: true, tension: 0.2, pointRadius: 0, borderWidth: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 5, font: {size: 10} } },
+                        yEle: { type: 'linear', position: 'right', display: false },
+                        ySpeed: { type: 'linear', position: 'left', suggestedMax: 40, ticks: {font: {size: 10}} }
+                    },
+                    onHover: (e, activeEls) => {
+                        // SYNCHRONISIERE DIAGRAMM MIT KARTE
+                        if (activeEls.length > 0) {
+                            hoverIdx = activeEls[0].index;
+                            let pt = currentDayPoints[hoverIdx];
+                            
+                            if(!chartCursorMarker) {
+                                chartCursorMarker = L.circleMarker([pt.lat, pt.lon], {color: 'black', fillColor: 'white', fillOpacity: 1, radius: 7, weight: 3}).addTo(map);
+                            } else {
+                                chartCursorMarker.setLatLng([pt.lat, pt.lon]);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // BUTTONS AUS DEM DIAGRAMM-BEREICH
+        window.setSelectionStart = function() {
+            if(hoverIdx > selEndIdx) selEndIdx = hoverIdx;
+            selStartIdx = hoverIdx;
+            updateView();
+        };
+        window.setSelectionEnd = function() {
+            if(hoverIdx < selStartIdx) selStartIdx = hoverIdx;
+            selEndIdx = hoverIdx;
+            updateView();
+        };
+
+        function analyzeSelection(points) {
+            let totalDist = 0, eleGain = 0, maxSpeed = 0;
+            let durationMin = (new Date(points[points.length-1].time) - new Date(points[0].time)) / 60000;
+
+            for(let i=1; i<points.length; i++) {
+                totalDist += getDistance(points[i-1].lat, points[i-1].lon, points[i].lat, points[i].lon) / 1000;
+                if(points[i].ele > points[i-1].ele) eleGain += (points[i].ele - points[i-1].ele);
+                if(points[i].speedKmh > maxSpeed && points[i].speedKmh < 100) maxSpeed = points[i].speedKmh;
+            }
+
+            let avgKmh = durationMin > 0 ? totalDist / (durationMin / 60) : 0;
+            let act = "Gehen"; if(avgKmh>7) act="Joggen"; if(avgKmh>15) act="Rad"; if(avgKmh>30) act="Auto";
+
+            document.getElementById('stActivity').innerText = act;
+            document.getElementById('stDist').innerText = totalDist.toFixed(2);
+            document.getElementById('stTime').innerText = durationMin.toFixed(0);
+            document.getElementById('stAvgSpd').innerText = avgKmh.toFixed(1);
+            document.getElementById('stMaxSpd').innerText = maxSpeed.toFixed(1);
+            document.getElementById('stEleUp').innerText = eleGain.toFixed(0);
+        }
+
+        // --- EVENTS ---
+        dateSelect.addEventListener('change', (e) => loadDay(e.target.value));
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const f = e.target.files[0]; if(!f) return;
+            const r = new FileReader();
+            r.onload = function(evt) {
+                if(f.name.toLowerCase().endsWith('.csv')) {
+                    Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(res) {
+                        let pts = res.data.filter(row => row.lat && row.lon).map(row => ({ lat: parseFloat(row.lat), lon: parseFloat(row.lon), ele: parseFloat(row.elevation||0), time: row.time, csvSpeed: parseFloat(row.speed||0) }));
+                        processAllPoints(pts);
+                    }});
+                }
+            };
+            r.readAsText(f);
+        });
+
+        exportBtn.addEventListener('click', () => {
+            const sel = currentDayPoints.slice(selStartIdx, selEndIdx + 1);
+            let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPS Editor Ultimate" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>Export_${dateSelect.value}</name><trkseg>
+`;
+            sel.forEach(p => { gpx += `      <trkpt lat="${p.lat}" lon="${p.lon}"><ele>${p.ele.toFixed(1)}</ele><time>${new Date(p.time).toISOString()}</time></trkpt>
+`; });
+            gpx += `    </trkseg></trk></gpx>`;
+            const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([gpx])); a.download = `Jogging_${dateSelect.value}.gpx`; a.click();
+        });
+    </script>
+</body>
+</html>        /* Slider */
         .slider-group { background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
         .slider-label { display: flex; justify-content: space-between; font-size: 0.85em; font-weight: bold; margin-bottom: 5px; color: #444; }
         input[type="range"] { width: 100%; margin: 5px 0; accent-color: #007bff; }
